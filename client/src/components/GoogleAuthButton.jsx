@@ -50,18 +50,35 @@ export default function GoogleAuthButton({ label = "Continue with Google" }) {
       return;
     }
 
+    const startOAuthRedirect = () => {
+      const apiBase = import.meta.env.VITE_API_URL || "/work/projects/chatflow/app/api";
+      const cleanApi = apiBase.replace(/\/+$/, "");
+      window.location.href = `${cleanApi}/auth/google`;
+    };
+
     if (window.google?.accounts?.id) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback popup if one-tap is suppressed
-          window.google.accounts.id.renderButton(
-            document.getElementById("google-hidden-btn"),
-            { theme: "outline", size: "large" }
-          );
-          const hiddenBtn = document.querySelector("#google-hidden-btn div[role=button]");
-          if (hiddenBtn) hiddenBtn.click();
-        }
-      });
+      try {
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            // Fallback popup if one-tap is suppressed
+            window.google.accounts.id.renderButton(
+              document.getElementById("google-hidden-btn"),
+              { theme: "outline", size: "large" }
+            );
+            const hiddenBtn = document.querySelector("#google-hidden-btn div[role=button]");
+            if (hiddenBtn) {
+              hiddenBtn.click();
+            } else {
+              startOAuthRedirect();
+            }
+          }
+        });
+      } catch (err) {
+        console.warn("One-tap prompt error, falling back to redirect:", err);
+        startOAuthRedirect();
+      }
+    } else {
+      startOAuthRedirect();
     }
   };
 

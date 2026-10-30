@@ -89,6 +89,153 @@ export const login = async (req, res) => {
   }
 };
 
+const decodeJwtPayload = (jwtToken) => {
+  try {
+    if (!jwtToken || typeof jwtToken !== "string") return null;
+    const parts = jwtToken.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = Buffer.from(base64, "base64").toString("utf-8");
+    return JSON.parse(jsonPayload);
+  } catch (err) {
+    console.error("JWT decode error:", err.message);
+    return null;
+  }
+};
+
+export const googleAuthRedirect = (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return res.status(500).json({ message: "Google Client ID is not configured" });
+  }
+
+  const redirectUri =
+    process.env.GOOGLE_CALLBACK_URL ||
+    "https://ialksng.me/work/projects/chatflow/app/api/auth/google/callback";
+
+  const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "select_account",
+  });
+
+  return res.redirect(`${rootUrl}?${params.toString()}`);
+};
+
+export const googleCallback = async (req, res) => {
+  const clientBase = (process.env.CLIENT_URL || "https://ialksng.me").replace(/\/+$/, "");
+  const rawBasePath = process.env.VITE_BASE_PATH || "/work/projects/chatflow/app/";
+  const cleanBasePath = rawBasePath.replace(/^\/+|\/+$/g, "");
+  const frontendAppUrl = `${clientBase}/${cleanBasePath}/`;
+
+  try {
+    let email = null;
+    let fullName = "Google User";
+    let profilePic = "";
+    let googleId = "";
+
+    // 1. If error returned by Google
+    if (req.query?.error) {
+      console.warn("Google OAuth callback returned error:", req.query.error);
+      return res.redirect(`${frontendAppUrl}login?error=${encodeURIComponent(req.query.error)}`);
+    }
+
+    // 2. Check if GIS posted credential in body or query (POST callback mode)
+    const credential = req.body?.credential || req.query?.credential;
+    if (credential) {
+      const decoded = decodeJwtPayload(credential);
+      if (decoded) {
+        email = decoded.email;
+        fullName = decoded.name || decoded.given_name || "Google User";
+        profilePic = decoded.picture || "";
+        googleId = decoded.sub;
+      }
+    }
+
+    // 3. Check if OAuth authorization code is provided in query (GET redirect callback mode)
+    const code = req.query?.code;
+    if (!email && code) {
+      const redirectUri =
+        process.env.GOOGLE_CALLBACK_URL ||
+        "https://ialksng.me/work/projects/chatflow/app/api/auth/google/callback";
+
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+
+      const tokenData = await tokenRes.json();
+
+      if (tokenData.error) {
+        console.error("Error exchanging Google authorization code:", tokenData);
+        return res.redirect(
+          `${frontendAppUrl}login?error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`
+        );
+      }
+
+      if (tokenData.id_token) {
+        const decoded = decodeJwtPayload(tokenData.id_token);
+        if (decoded) {
+          email = decoded.email;
+          fullName = decoded.name || decoded.given_name || "Google User";
+          profilePic = decoded.picture || "";
+          googleId = decoded.sub;
+        }
+      }
+
+      if (!email && tokenData.access_token) {
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const userInfo = await userRes.json();
+        email = userInfo.email;
+        fullName = userInfo.name || userInfo.given_name || fullName;
+        profilePic = userInfo.picture || profilePic;
+        googleId = userInfo.sub || googleId;
+      }
+    }
+
+    if (!email) {
+      return res.redirect(`${frontendAppUrl}login?error=email_not_provided`);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      if (!user.googleId && googleId) user.googleId = googleId;
+      if (!user.profilePic && profilePic) user.profilePic = profilePic;
+      await user.save();
+    } else {
+      user = new User({
+        fullName: fullName || normalizedEmail.split("@")[0],
+        email: normalizedEmail,
+        profilePic,
+        googleId,
+      });
+      await user.save();
+    }
+
+    const token = generateToken(user._id, res);
+
+    return res.redirect(`${frontendAppUrl}?token=${encodeURIComponent(token)}`);
+  } catch (error) {
+    console.error("Error in googleCallback:", error);
+    return res.redirect(`${frontendAppUrl}login?error=${encodeURIComponent(error.message)}`);
+  }
+};
+
 export const googleLogin = async (req, res) => {
   try {
     const { credential, email: directEmail, fullName: directName, profilePic: directPic, googleId: directGoogleId } = req.body;
@@ -100,22 +247,12 @@ export const googleLogin = async (req, res) => {
 
     // Decode Google ID Token if passed
     if (credential) {
-      try {
-        const base64Url = credential.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
-        const decoded = JSON.parse(jsonPayload);
+      const decoded = decodeJwtPayload(credential);
+      if (decoded) {
         email = decoded.email;
         fullName = decoded.name || decoded.given_name || "Google User";
         profilePic = decoded.picture || profilePic;
         googleId = decoded.sub;
-      } catch (decErr) {
-        console.error("Error decoding Google credential:", decErr.message);
       }
     }
 

@@ -43,12 +43,33 @@ app.use(
 );
 
 app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
 // Normalize any subpath prefix so /work/projects/chatflow/app/api/... becomes /api/...
 app.use((req, _res, next) => {
-  if (req.url) {
-    req.url = req.url.replace(/^.*\/api(\/|$)/, "/api$1");
+  // If Vercel rewrote with query parameter ?path=...
+  if (req.query && req.query.path) {
+    const rawPath = Array.isArray(req.query.path) ? req.query.path.join("/") : req.query.path;
+    req.url = `/api/${rawPath.replace(/^\/+/, "")}`;
+  } else {
+    // Check req.url or fallback to x-matched-path header when rewritten to /api/index.js
+    let url = req.url || "/";
+    const matchedPath = req.headers["x-matched-path"] || req.headers["x-now-route-matches"];
+    if (url === "/api/index.js" || url.startsWith("/api/index.js") || url === "/api" || url === "/api/") {
+      if (matchedPath && !matchedPath.includes("index.js")) {
+        url = matchedPath;
+      }
+    }
+
+    let cleanUrl = url
+      .replace(/^.*\/work\/projects\/chatflow\/(app\/)?api\/?/, "/api/")
+      .replace(/^\/chatflow-api\/?/, "/api/");
+
+    if (!cleanUrl.startsWith("/api")) {
+      cleanUrl = `/api${cleanUrl.startsWith("/") ? "" : "/"}${cleanUrl}`;
+    }
+    req.url = cleanUrl;
   }
   next();
 });

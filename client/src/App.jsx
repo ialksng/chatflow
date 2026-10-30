@@ -16,7 +16,7 @@ import { useCallStore } from "./store/useCallStore";
 import { useEffect } from "react";
 
 import { Loader } from "lucide-react";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
@@ -25,8 +25,26 @@ const App = () => {
 
   const isAuthenticated = Boolean(authUser && typeof authUser === "object" && authUser._id);
 
-  // Check Authentication on mount
+  // Check Authentication on mount and handle OAuth callback tokens
   useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get("token");
+      const error = urlParams.get("error");
+
+      if (token) {
+        localStorage.setItem("chatflow_token", token);
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+      if (error) {
+        toast.error(`Authentication: ${decodeURIComponent(error)}`);
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch (e) {
+      console.error("Error processing URL params:", e);
+    }
     checkAuth();
   }, [checkAuth]);
 
