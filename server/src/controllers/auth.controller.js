@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { sendPasswordResetEmail } from "../lib/email.js";
 
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
@@ -351,10 +352,18 @@ export const forgotPassword = async (req, res) => {
 
     console.log(`[PASSWORD RESET] Token generated for ${user.email}: ${resetUrl}`);
 
-    res.status(200).json({
-      message: "Password reset link generated successfully.",
+    const emailSent = await sendPasswordResetEmail({
+      to: user.email,
       resetUrl,
-      resetToken,
+      fullName: user.fullName,
+    });
+
+    res.status(200).json({
+      message: emailSent
+        ? `A password reset link has been sent to ${user.email}. Please check your inbox and spam folder.`
+        : "Password reset request processed. If the email is registered, instructions have been dispatched.",
+      emailSent,
+      resetUrl: process.env.NODE_ENV !== "production" ? resetUrl : undefined,
     });
   } catch (error) {
     console.error("Error in forgotPassword controller:", error.message);

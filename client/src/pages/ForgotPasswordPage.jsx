@@ -45,9 +45,9 @@ export default function ForgotPasswordPage() {
               <div className="flex justify-center text-success">
                 <CheckCircle2 className="size-12" />
               </div>
-              <h3 className="text-lg font-semibold">Request Received</h3>
+              <h3 className="text-lg font-semibold">Check Your Email</h3>
               <p className="text-sm text-base-content/70">
-                If an account exists for <span className="font-medium text-base-content">{email}</span>, a reset token has been created.
+                A password reset link has been sent to <span className="font-medium text-base-content">{email}</span>. Please check your inbox and spam folder.
               </p>
               {resetInfo?.resetUrl && (
                 <div className="mt-4 p-3 bg-base-100 rounded-lg text-left text-xs break-all border border-base-300">

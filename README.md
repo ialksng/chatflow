@@ -14,7 +14,6 @@ A modern, full-stack, real-time communication platform featuring 1-on-1 instant 
 
 - **Live Application**: [https://ialksng.me/work/projects/chatflow/app](https://ialksng.me/work/projects/chatflow/app)
 - **Vercel Production Mirror**: [https://chatflow-ten-rho.vercel.app](https://chatflow-ten-rho.vercel.app)
-- **Real-Time Socket Server (Render)**: [https://chatflow-p0iz.onrender.com](https://chatflow-p0iz.onrender.com)
 - **Developer Website**: [https://ialksng.me](https://ialksng.me)
 
 ---
@@ -86,13 +85,13 @@ A modern, full-stack, real-time communication platform featuring 1-on-1 instant 
 
 | Service | Purpose | Configuration |
 | :--- | :--- | :--- |
+| **Email Service (SMTP / Gmail)** | Automated password reset emails with timed verification tokens | `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`, `EMAIL_REPLY_TO` |
 | **Groq Cloud API** | Ultra-low latency LLM inference for AI Assistant | `GROQ_API_KEY`, `GROQ_MODEL` |
 | **Twilio Network Traversal** | Dynamic STUN/TURN ICE servers for cross-network WebRTC | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` |
 | **Google OAuth 2.0** | Single Sign-On (SSO) authentication | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | **Cloudinary** | Cloud image storage and asset optimization | `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_SECRET` |
 | **MongoDB Atlas** | Cloud database for user profiles, messages, and state | `MONGODB_URI` |
-| **Render** | Persistent WebSocket & Socket.IO signaling server | Hosted at `chatflow-p0iz.onrender.com` |
-| **Vercel** | Edge hosting, client bundle distribution, and serverless API | Hosted at `chatflow-ten-rho.vercel.app` |
+| **Vercel** | Edge hosting, client bundle distribution, and unified serverless API | Hosted at `chatflow-ten-rho.vercel.app` |
 
 ---
 
@@ -110,6 +109,12 @@ CORS_ORIGINS=http://localhost:5173,https://ialksng.me,https://chatflow-ten-rho.v
 # Database & Authentication
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/chatflow?retryWrites=true&w=majority
 JWT_SECRET=your_super_secret_jwt_key_here
+
+# Email Delivery (Password Reset)
+EMAIL_USER=ialksng@gmail.com
+EMAIL_PASS=your_gmail_app_password
+EMAIL_FROM=Alok Singh <no-reply@ialksng.me>
+EMAIL_REPLY_TO=no-reply@ialksng.me
 
 # Groq AI Assistant
 GROQ_API_KEY=gsk_your_groq_api_key
@@ -207,14 +212,14 @@ The repository contains a [`vercel.json`](./vercel.json) pre-configured with rew
 2. Configure your Environment Variables (`MONGODB_URI`, `JWT_SECRET`, `GROQ_API_KEY`, `VITE_SOCKET_URL`).
 3. Deploy. Vercel automatically runs `npm run build` and distributes the optimized client bundle.
 
-### 2. Real-Time Socket Server (Render / Railway / VPS)
+### 2. Real-Time Socket Server (Persistent Host)
 Because WebSocket signaling and WebRTC coordination require a persistent Node.js event loop:
-1. Create a new **Web Service** on [Render](https://render.com).
+1. Create a new service on your persistent host (Railway, Render, Fly.io, or VPS).
 2. Set:
    - **Build Command**: `npm install && npm run build`
    - **Start Command**: `npm start`
 3. Add your environment variables (`MONGODB_URI`, `JWT_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `CLIENT_URL`).
-4. Once deployed, copy your Render service URL (e.g. `https://chatflow-p0iz.onrender.com`) and set it as `VITE_SOCKET_URL` in your frontend environment.
+4. Once deployed, set your service URL as `VITE_SOCKET_URL` in your frontend environment.
 
 ---
 
