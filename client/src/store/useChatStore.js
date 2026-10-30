@@ -29,7 +29,7 @@ export const useChatStore = create((set, get) => ({
           id: INDRA_AI_ID,
           fullName: "Indra AI",
           email: "ai@indra.ialksng.me",
-          profilePic: "/bot.gif" // Or your preferred avatar
+          profilePic: `${import.meta.env.BASE_URL}avatar.png` // Or your preferred avatar
         });
       }
       

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/dist",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/work/projects/chatflow/app",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/chatflow-api/:match*",
+      "destination": "https://chatflow.ialksng.me/api/:match*"
+    },
+    {
+      "source": "/work/projects/chatflow/app/assets/:match*",
+      "destination": "/work/projects/chatflow/app/assets/:match*"
+    },
+    {
+      "source": "/work/projects/chatflow/app/:match*",
+      "destination": "/work/projects/chatflow/app/index.html"
+    },
+    {
+      "source": "/work/projects/chatflow/app",
+      "destination": "/work/projects/chatflow/app/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+
