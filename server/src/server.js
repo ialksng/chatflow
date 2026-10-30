@@ -23,6 +23,9 @@ if (process.env.NODE_ENV === "production" && fs.existsSync(clientDistPath)) {
   });
 }
 
+// Attach the Express app to the HTTP server for all HTTP requests
+server.on("request", app);
+
 server.listen(PORT, async () => {
   console.log("Unified Chatflow Server listening natively on Port: " + PORT);
   await connectDB();

@@ -1,10 +1,9 @@
 import { Server } from "socket.io";
 import http from "http";
 import jwt from "jsonwebtoken";
-import app from "../app.js";
 import Message from "../models/message.model.js";
 
-const server = http.createServer(app);
+const server = http.createServer();
 
 const io = new Server(server, {
   cors: {
