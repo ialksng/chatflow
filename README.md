@@ -13,7 +13,6 @@ A modern, full-stack, real-time communication platform featuring 1-on-1 instant 
 ## 🌐 Live Deployments
 
 - **Live Application**: [https://ialksng.me/work/projects/chatflow/app](https://ialksng.me/work/projects/chatflow/app)
-- **Vercel Production Mirror**: [https://chatflow-ten-rho.vercel.app](https://chatflow-ten-rho.vercel.app)
 - **Developer Website**: [https://ialksng.me](https://ialksng.me)
 
 ---
