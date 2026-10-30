@@ -152,6 +152,21 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Whiteboard drawing synchronization
+  socket.on("draw", ({ to, drawData }) => {
+    const receiverSocketId = getReceiverSocketId(to);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("receive-draw", drawData);
+    }
+  });
+
+  socket.on("clear-whiteboard", ({ to }) => {
+    const receiverSocketId = getReceiverSocketId(to);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("clear-whiteboard");
+    }
+  });
+
   socket.on("triggerAiAssistant", async ({ messageText }) => {
     await handleAiAssistantInference(socket.userId, messageText, socket.id);
   });

@@ -67,3 +67,4 @@ export const getGroqAiResponse = async (history = [], userMessage = "") => {
     return `Error connecting to AI service: ${error.message}`;
   }
 };
+

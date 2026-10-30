@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId, AI_ASSISTANT_ID, INDRA_AI_ID } from "../lib/socket.js";
 import { getGroqAiResponse } from "../lib/groq.js";
+import twilio from "twilio";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
@@ -248,14 +249,42 @@ export const reactToMessage = async (req, res) => {
 
 export const getTurnCredentials = async (req, res) => {
   try {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+    if (accountSid && authToken) {
+      try {
+        const client = twilio(accountSid, authToken);
+        const token = await client.tokens.create({ ttl: 86400 });
+        if (token && token.iceServers) {
+          return res.status(200).json({
+            iceServers: token.iceServers,
+          });
+        }
+      } catch (twilioErr) {
+        console.warn("Twilio Network Traversal Token creation failed:", twilioErr.message);
+      }
+    }
+
+    // High reliability fallback STUN & open TURN servers
     res.status(200).json({
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
+        { urls: "stun:global.stun.twilio.com:3478" },
       ],
     });
   } catch (error) {
     console.error("Error in getTurnCredentials:", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(200).json({
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:global.stun.twilio.com:3478" },
+      ],
+    });
   }
 };

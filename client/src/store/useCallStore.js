@@ -77,11 +77,23 @@ export const useCallStore = create((set, get) => ({
     if (get().iceServers) return { iceServers: get().iceServers };
     try {
       const res = await axiosInstance.get("/messages/turn");
-      set({ iceServers: res.data });
-      return { iceServers: res.data };
+      const servers = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.iceServers || [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:global.stun.twilio.com:3478" },
+          ]);
+      set({ iceServers: servers });
+      return { iceServers: servers };
     } catch (error) {
       console.error("Failed to fetch TURN servers, using STUN fallback", error);
-      return { iceServers: [{ urls: ["stun:stun1.l.google.com:19302"] }] };
+      const fallback = [
+        { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+        { urls: ["stun:global.stun.twilio.com:3478"] },
+      ];
+      set({ iceServers: fallback });
+      return { iceServers: fallback };
     }
   },
 
@@ -137,7 +149,11 @@ export const useCallStore = create((set, get) => ({
   initiateCall: async (mode) => {
     const { selectedUser } = useChatStore.getState();
     const { authUser, socket } = useAuthStore.getState();
-    if (!selectedUser || !socket) return;
+    if (!selectedUser) return;
+    if (!socket || !socket.connected) {
+      toast.error("Realtime socket connection is required for audio/video calls and drawing.");
+      return;
+    }
 
     set({ 
       callState: "calling", callMode: mode, remoteUserId: selectedUser._id,
@@ -189,7 +205,10 @@ export const useCallStore = create((set, get) => ({
   acceptCall: async () => {
     const { remoteUserId, callMode, incomingSignal } = get();
     const socket = useAuthStore.getState().socket;
-    if (!socket) return;
+    if (!socket || !socket.connected) {
+      toast.error("Realtime connection required to accept call.");
+      return;
+    }
 
     set({ callState: "active", isMicOn: true, isVideoOn: true, isScreenSharing: false, remoteIsScreenSharing: false });
 
