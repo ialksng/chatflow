@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
 const getSocketUrl = () => {
-  const url = import.meta.env.VITE_SOCKET_URL;
+  const url = import.meta.env.VITE_SOCKET_URL || "https://chatflow-p0iz.onrender.com";
   if (!url || url === "disabled" || url === "false") return null;
   return url.trim();
 };

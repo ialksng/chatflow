@@ -1,28 +1,17 @@
 import { Server } from "socket.io";
 import http from "http";
-import express from "express";
 import jwt from "jsonwebtoken";
+import app from "../app.js";
 import Message from "../models/message.model.js";
 
-const app = express();
 const server = http.createServer(app);
-
-const allowedOrigins = [
-  "https://ialksng.me",
-  "https://www.ialksng.me",
-  "https://chatflow.ialksng.me",
-  "https://chatflow-ten-rho.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
-
-if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow all subpath origins, domains, and web requests
+      callback(null, true);
+    },
     credentials: true,
   },
 });
