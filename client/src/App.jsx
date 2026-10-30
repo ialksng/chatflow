@@ -23,6 +23,8 @@ const App = () => {
   const { theme } = useThemeStore();
   const { listenToCallEvents, stopListeningToCallEvents } = useCallStore();
 
+  const isAuthenticated = Boolean(authUser && typeof authUser === "object" && authUser._id);
+
   // Check Authentication on mount
   useEffect(() => {
     checkAuth();
@@ -35,15 +37,15 @@ const App = () => {
 
   // Listen to incoming WebRTC calls when user is logged in
   useEffect(() => {
-    if (authUser) {
+    if (isAuthenticated) {
       listenToCallEvents();
     }
     return () => {
       stopListeningToCallEvents();
     };
-  }, [authUser, listenToCallEvents, stopListeningToCallEvents]);
+  }, [isAuthenticated, listenToCallEvents, stopListeningToCallEvents]);
 
-  if (isCheckingAuth && !authUser) {
+  if (isCheckingAuth && !isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-screen bg-base-100">
         <Loader className="size-10 animate-spin text-primary" />
@@ -56,33 +58,33 @@ const App = () => {
       <Navbar />
 
       {/* Only render Call Overlay if user is logged in */}
-      {authUser && <CallOverlay />}
+      {isAuthenticated && <CallOverlay />}
 
       <Routes>
         <Route
           path="/"
-          element={authUser ? <HomePage /> : <Navigate to="/login" replace />}
+          element={isAuthenticated ? <HomePage /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/signup"
-          element={!authUser ? <SignUpPage /> : <Navigate to="/" replace />}
+          element={!isAuthenticated ? <SignUpPage /> : <Navigate to="/" replace />}
         />
         <Route
           path="/login"
-          element={!authUser ? <LoginPage /> : <Navigate to="/" replace />}
+          element={!isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />}
         />
         <Route
           path="/forgot-password"
-          element={!authUser ? <ForgotPasswordPage /> : <Navigate to="/" replace />}
+          element={!isAuthenticated ? <ForgotPasswordPage /> : <Navigate to="/" replace />}
         />
         <Route
           path="/reset-password/:token"
-          element={!authUser ? <ResetPasswordPage /> : <Navigate to="/" replace />}
+          element={!isAuthenticated ? <ResetPasswordPage /> : <Navigate to="/" replace />}
         />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
           path="/profile"
-          element={authUser ? <ProfilePage /> : <Navigate to="/login" replace />}
+          element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

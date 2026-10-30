@@ -5,6 +5,10 @@ import { io } from "socket.io-client";
 
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "https://chatflow.ialksng.me";
 
+const isValidUser = (user) => {
+  return Boolean(user && typeof user === "object" && user._id && typeof user._id === "string");
+};
+
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
@@ -20,13 +24,18 @@ export const useAuthStore = create((set, get) => ({
   checkAuth: async () => {
     try {
       const res = await axiosInstance.get("/auth/check");
-      if (res.data?.token) {
-        localStorage.setItem("chatflow_token", res.data.token);
+      if (isValidUser(res.data)) {
+        if (res.data.token) {
+          localStorage.setItem("chatflow_token", res.data.token);
+        }
+        set({ authUser: res.data });
+        get().connectSocket();
+      } else {
+        localStorage.removeItem("chatflow_token");
+        set({ authUser: null });
       }
-      set({ authUser: res.data });
-      get().connectSocket();
     } catch (error) {
-      console.log("Error in checkAuth:", error);
+      console.log("Not authenticated:", error.response?.status || error.message);
       localStorage.removeItem("chatflow_token");
       set({ authUser: null });
     } finally {
@@ -38,12 +47,16 @@ export const useAuthStore = create((set, get) => ({
     set({ isSigningUp: true });
     try {
       const res = await axiosInstance.post("/auth/signup", data);
-      if (res.data?.token) {
-        localStorage.setItem("chatflow_token", res.data.token);
+      if (isValidUser(res.data)) {
+        if (res.data.token) {
+          localStorage.setItem("chatflow_token", res.data.token);
+        }
+        set({ authUser: res.data });
+        toast.success("Account created successfully");
+        get().connectSocket();
+      } else {
+        toast.error("Failed to process account creation");
       }
-      set({ authUser: res.data });
-      toast.success("Account created successfully");
-      get().connectSocket();
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {
@@ -55,12 +68,16 @@ export const useAuthStore = create((set, get) => ({
     set({ isLoggingIn: true });
     try {
       const res = await axiosInstance.post("/auth/login", data);
-      if (res.data?.token) {
-        localStorage.setItem("chatflow_token", res.data.token);
+      if (isValidUser(res.data)) {
+        if (res.data.token) {
+          localStorage.setItem("chatflow_token", res.data.token);
+        }
+        set({ authUser: res.data });
+        toast.success("Logged in successfully");
+        get().connectSocket();
+      } else {
+        toast.error("Invalid response from server");
       }
-      set({ authUser: res.data });
-      toast.success("Logged in successfully");
-      get().connectSocket();
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
     } finally {
@@ -72,12 +89,16 @@ export const useAuthStore = create((set, get) => ({
     set({ isGoogleLoggingIn: true });
     try {
       const res = await axiosInstance.post("/auth/google", credentialPayload);
-      if (res.data?.token) {
-        localStorage.setItem("chatflow_token", res.data.token);
+      if (isValidUser(res.data)) {
+        if (res.data.token) {
+          localStorage.setItem("chatflow_token", res.data.token);
+        }
+        set({ authUser: res.data });
+        toast.success("Logged in with Google successfully!");
+        get().connectSocket();
+      } else {
+        toast.error("Google authentication failed");
       }
-      set({ authUser: res.data });
-      toast.success("Logged in with Google successfully!");
-      get().connectSocket();
     } catch (error) {
       toast.error(error.response?.data?.message || "Google sign in failed");
     } finally {
@@ -116,12 +137,13 @@ export const useAuthStore = create((set, get) => ({
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
+    } catch (error) {
+      console.warn("Logout error:", error.message);
+    } finally {
       localStorage.removeItem("chatflow_token");
       set({ authUser: null });
       toast.success("Logged out successfully");
       get().disconnectSocket();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Logout failed");
     }
   },
 
@@ -129,8 +151,10 @@ export const useAuthStore = create((set, get) => ({
     set({ isUpdatingProfile: true });
     try {
       const res = await axiosInstance.put("/auth/update-profile", data);
-      set({ authUser: res.data });
-      toast.success("Profile updated successfully");
+      if (isValidUser(res.data)) {
+        set({ authUser: res.data });
+        toast.success("Profile updated successfully");
+      }
     } catch (error) {
       console.log("error in update profile:", error);
       toast.error(error.response?.data?.message || "Profile update failed");
@@ -141,7 +165,7 @@ export const useAuthStore = create((set, get) => ({
 
   connectSocket: () => {
     const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    if (!isValidUser(authUser) || get().socket?.connected) return;
 
     const token = localStorage.getItem("chatflow_token");
     const socket = io(BASE_URL, {
