@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "https://chatflow.ialksng.me";
 
 const isValidUser = (user) => {
-  return Boolean(user && typeof user === "object" && user._id && typeof user._id === "string");
+  return Boolean(user && typeof user === "object" && user._id && String(user._id).length > 0);
 };
 
 export const useAuthStore = create((set, get) => ({

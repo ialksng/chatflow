@@ -1,96 +1,31 @@
-import { useEffect } from "react";
-import { useAuthStore } from "../store/useAuthStore";
-import toast from "react-hot-toast";
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function GoogleAuthButton({ label = "Continue with Google" }) {
-  const { googleLogin, isGoogleLoggingIn } = useAuthStore();
-
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) return;
-
-    const handleCredentialResponse = (response) => {
-      if (response?.credential) {
-        googleLogin({ credential: response.credential });
-      }
-    };
-
-    const loadGsiScript = () => {
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleCredentialResponse,
-        });
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        window.google?.accounts?.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleCredentialResponse,
-        });
-      };
-      document.body.appendChild(script);
-    };
-
-    loadGsiScript();
-  }, [googleLogin]);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleGoogleClick = () => {
-    if (!GOOGLE_CLIENT_ID) {
-      toast.error(
-        "Google Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your environment variables.",
-        { duration: 4000 }
-      );
-      return;
-    }
+    setIsRedirecting(true);
+    const apiBase =
+      import.meta.env.VITE_API_URL ||
+      (import.meta.env.BASE_URL
+        ? `${import.meta.env.BASE_URL.replace(/\/+$/, "")}/api`
+        : "/api");
 
-    const startOAuthRedirect = () => {
-      const apiBase = import.meta.env.VITE_API_URL || "/work/projects/chatflow/app/api";
-      const cleanApi = apiBase.replace(/\/+$/, "");
-      window.location.href = `${cleanApi}/auth/google`;
-    };
-
-    if (window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Fallback popup if one-tap is suppressed
-            window.google.accounts.id.renderButton(
-              document.getElementById("google-hidden-btn"),
-              { theme: "outline", size: "large" }
-            );
-            const hiddenBtn = document.querySelector("#google-hidden-btn div[role=button]");
-            if (hiddenBtn) {
-              hiddenBtn.click();
-            } else {
-              startOAuthRedirect();
-            }
-          }
-        });
-      } catch (err) {
-        console.warn("One-tap prompt error, falling back to redirect:", err);
-        startOAuthRedirect();
-      }
-    } else {
-      startOAuthRedirect();
-    }
+    const cleanApi = apiBase.replace(/\/+$/, "");
+    window.location.href = `${cleanApi}/auth/google`;
   };
 
   return (
-    <>
-      <div id="google-hidden-btn" className="hidden"></div>
-      <button
-        type="button"
-        onClick={handleGoogleClick}
-        disabled={isGoogleLoggingIn}
-        className="btn btn-outline w-full flex items-center justify-center gap-3 transition-colors hover:bg-base-200"
-      >
+    <button
+      type="button"
+      onClick={handleGoogleClick}
+      disabled={isRedirecting}
+      className="btn btn-outline w-full flex items-center justify-center gap-3 transition-colors hover:bg-base-200"
+    >
+      {isRedirecting ? (
+        <Loader2 className="w-5 h-5 animate-spin" />
+      ) : (
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
@@ -109,9 +44,9 @@ export default function GoogleAuthButton({ label = "Continue with Google" }) {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
           />
         </svg>
-        <span>{isGoogleLoggingIn ? "Signing in..." : label}</span>
-      </button>
-    </>
+      )}
+      <span>{isRedirecting ? "Connecting to Google..." : label}</span>
+    </button>
   );
 }
 
