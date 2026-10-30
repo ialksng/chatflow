@@ -3,7 +3,11 @@ import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "https://chatflow.ialksng.me";
+const getSocketUrl = () => {
+  const url = import.meta.env.VITE_SOCKET_URL;
+  if (!url || url === "disabled" || url === "false" || url.includes("chatflow.ialksng.me")) return null;
+  return url.trim();
+};
 
 const isValidUser = (user) => {
   return Boolean(user && typeof user === "object" && user._id && String(user._id).length > 0);
@@ -35,7 +39,9 @@ export const useAuthStore = create((set, get) => ({
         set({ authUser: null });
       }
     } catch (error) {
-      console.log("Not authenticated:", error.response?.status || error.message);
+      if (error.response?.status !== 401) {
+        console.warn("Check auth:", error.response?.status || error.message);
+      }
       localStorage.removeItem("chatflow_token");
       set({ authUser: null });
     } finally {
@@ -167,20 +173,35 @@ export const useAuthStore = create((set, get) => ({
     const { authUser } = get();
     if (!isValidUser(authUser) || get().socket?.connected) return;
 
-    const token = localStorage.getItem("chatflow_token");
-    const socket = io(BASE_URL, {
-      auth: { token },
-      query: {
-        userId: authUser._id,
-      },
-    });
-    socket.connect();
+    const socketUrl = getSocketUrl();
+    if (!socketUrl) return;
 
-    set({ socket: socket });
+    try {
+      const token = localStorage.getItem("chatflow_token");
+      const socket = io(socketUrl, {
+        auth: { token },
+        query: {
+          userId: authUser._id,
+        },
+        reconnectionAttempts: 2,
+        timeout: 4000,
+        transports: ["websocket", "polling"],
+      });
 
-    socket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
-    });
+      socket.on("connect_error", (error) => {
+        console.warn("Socket connection warning:", error.message);
+        socket.disconnect();
+      });
+
+      socket.on("getOnlineUsers", (userIds) => {
+        set({ onlineUsers: userIds });
+      });
+
+      socket.connect();
+      set({ socket });
+    } catch (err) {
+      console.warn("Failed to initialize socket:", err);
+    }
   },
 
   disconnectSocket: () => {

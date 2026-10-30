@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
@@ -402,7 +403,7 @@ export const resetPassword = async (req, res) => {
 
 export const logout = (req, res) => {
   try {
-    res.cookie("jwt", "", { maxAge: 0, sameSite: "lax", secure: true });
+    res.cookie("jwt", "", { maxAge: 0, sameSite: "lax", secure: true, path: "/" });
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Error in logout controller:", error.message);
@@ -433,11 +434,41 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-export const checkAuth = (req, res) => {
+export const checkAuth = async (req, res) => {
   try {
-    res.status(200).json(req.user);
+    const authHeader = req.headers.authorization;
+    const token =
+      (authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : null) || req.cookies?.jwt;
+
+    if (!token) {
+      return res.status(200).json(null);
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || "chatflow-default-secret-key"
+      );
+    } catch {
+      return res.status(200).json(null);
+    }
+
+    if (!decoded || !decoded.userId) {
+      return res.status(200).json(null);
+    }
+
+    const user = await User.findById(decoded.userId).select("-password");
+    if (!user) {
+      return res.status(200).json(null);
+    }
+
+    const userData = user.toObject ? user.toObject() : user;
+    res.status(200).json({ ...userData, token });
   } catch (error) {
     console.error("Error in checkAuth controller:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(200).json(null);
   }
 };

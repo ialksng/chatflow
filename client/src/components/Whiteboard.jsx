@@ -18,6 +18,8 @@ const Whiteboard = () => {
     canvas.width = 1000;
     canvas.height = 1000;
 
+    if (!socket) return;
+
     const onReceiveDraw = (data) => {
       const { x0, y0, x1, y1, color } = data;
       drawLine(ctx, x0, y0, x1, y1, color, false);
@@ -38,7 +40,7 @@ const Whiteboard = () => {
     ctx.stroke();
     ctx.closePath();
 
-    if (!emit) return;
+    if (!emit || !socket) return;
     socket.emit("draw", {
       to: remoteUserId,
       drawData: { x0, y0, x1, y1, color }
