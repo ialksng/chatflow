@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspace client",
+    "render-build": "npm install && npm run build --workspace client",
     "dev": "npm run dev --workspace client",
     "server:dev": "npm run dev --workspace server",
     "start": "node server/src/server.js"
