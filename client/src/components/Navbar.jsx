@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User, Globe } from "lucide-react";
 import logo from "../assets/logo-navbar.png";
 
 const Navbar = () => {
@@ -25,6 +25,13 @@ const Navbar = () => {
 
           {/* Right Side */}
           <div className="flex items-center gap-2">
+            <a
+              href="https://ialksng.me"
+              className="btn btn-sm btn-outline border-base-300 hover:border-primary gap-1.5 transition-all font-medium"
+            >
+              <Globe className="w-4 h-4 text-primary" />
+              <span>ialksng</span>
+            </a>
 
             <Link
               to="/settings"
