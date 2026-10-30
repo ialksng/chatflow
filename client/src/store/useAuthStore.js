@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
+import { useCallStore } from "./useCallStore.js";
 
 const getSocketUrl = () => {
   const url = import.meta.env.VITE_SOCKET_URL || "https://chatflow-p0iz.onrender.com";
@@ -181,16 +182,20 @@ export const useAuthStore = create((set, get) => ({
       const socket = io(socketUrl, {
         auth: { token },
         query: {
-          userId: authUser._id,
+          userId: authUser._id || authUser.id,
+          token: token || "",
         },
-        reconnectionAttempts: 2,
-        timeout: 4000,
+        reconnectionAttempts: 5,
+        timeout: 10000,
         transports: ["websocket", "polling"],
+      });
+
+      socket.on("connect", () => {
+        useCallStore.getState().listenToCallEvents();
       });
 
       socket.on("connect_error", (error) => {
         console.warn("Socket connection warning:", error.message);
-        socket.disconnect();
       });
 
       socket.on("getOnlineUsers", (userIds) => {

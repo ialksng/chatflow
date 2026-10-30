@@ -155,11 +155,26 @@ export const useCallStore = create((set, get) => ({
       return;
     }
 
+    const targetUserId = (selectedUser._id || selectedUser.id)?.toString();
+    const myUserId = (authUser._id || authUser.id)?.toString();
+
     set({ 
-      callState: "calling", callMode: mode, remoteUserId: selectedUser._id,
+      callState: "calling", callMode: mode, remoteUserId: targetUserId,
       callerName: selectedUser.fullName, isMicOn: true, isVideoOn: true,
       isScreenSharing: false, remoteIsScreenSharing: false, iceCandidateQueue: [],
     });
+
+    if (mode === "draw") {
+      // Whiteboard drawing does NOT require camera or microphone permissions
+      socket.emit("call-user", {
+        userToCall: targetUserId,
+        from: myUserId,
+        name: authUser.fullName,
+        mode: "draw",
+        signalData: null,
+      });
+      return;
+    }
 
     let stream = await getRobustMediaStream(mode);
     set({ localStream: stream });
@@ -186,19 +201,19 @@ export const useCallStore = create((set, get) => ({
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socket.emit("ice-candidate", { to: selectedUser._id, candidate: event.candidate });
+        socket.emit("ice-candidate", { to: targetUserId, candidate: event.candidate });
       }
     };
 
-    let offer = null;
-    if (mode !== "draw") {
-      offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-    }
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
 
     socket.emit("call-user", {
-      userToCall: selectedUser._id, from: authUser._id, name: authUser.fullName,
-      mode: mode, signalData: offer 
+      userToCall: targetUserId,
+      from: myUserId,
+      name: authUser.fullName,
+      mode: mode,
+      signalData: offer,
     });
   },
 
@@ -211,6 +226,11 @@ export const useCallStore = create((set, get) => ({
     }
 
     set({ callState: "active", isMicOn: true, isVideoOn: true, isScreenSharing: false, remoteIsScreenSharing: false });
+
+    if (callMode === "draw") {
+      socket.emit("answer-call", { to: remoteUserId, signal: null });
+      return;
+    }
 
     let stream = await getRobustMediaStream(callMode);
     set({ localStream: stream });
@@ -241,20 +261,22 @@ export const useCallStore = create((set, get) => ({
       }
     };
 
-    let answer = null;
-    if (callMode !== "draw" && incomingSignal) {
-      await pc.setRemoteDescription(new RTCSessionDescription(incomingSignal));
-      const { iceCandidateQueue } = get();
-      iceCandidateQueue.forEach(async (candidate) => {
-        try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
-      });
-      set({ iceCandidateQueue: [] });
+    if (incomingSignal) {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(incomingSignal));
+        const { iceCandidateQueue } = get();
+        iceCandidateQueue.forEach(async (candidate) => {
+          try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+        });
+        set({ iceCandidateQueue: [] });
 
-      answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("answer-call", { to: remoteUserId, signal: answer });
+      } catch (err) {
+        console.warn("Error handling incoming signal:", err);
+      }
     }
-
-    socket.emit("answer-call", { to: remoteUserId, signal: answer });
   },
 
   rejectCall: () => {

@@ -19,7 +19,7 @@ import { Loader } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const App = () => {
-  const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
+  const { authUser, checkAuth, isCheckingAuth, socket } = useAuthStore();
   const { theme } = useThemeStore();
   const { listenToCallEvents, stopListeningToCallEvents } = useCallStore();
 
@@ -53,15 +53,15 @@ const App = () => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // Listen to incoming WebRTC calls when user is logged in
+  // Listen to incoming WebRTC calls when user is logged in and socket is connected
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && socket) {
       listenToCallEvents();
     }
     return () => {
       stopListeningToCallEvents();
     };
-  }, [isAuthenticated, listenToCallEvents, stopListeningToCallEvents]);
+  }, [isAuthenticated, socket, listenToCallEvents, stopListeningToCallEvents]);
 
   if (isCheckingAuth && !isAuthenticated) {
     return (

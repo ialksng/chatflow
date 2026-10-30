@@ -17,7 +17,9 @@ export const useChatStore = create((set, get) => ({
   replyingTo: null,
 
   getUsers: async () => {
-    set({ isUsersLoading: true });
+    if (!get().users?.length) {
+      set({ isUsersLoading: true });
+    }
     try {
       const res = await axiosInstance.get("/messages/users");
       let fetchedUsers = res.data || [];
@@ -37,9 +39,8 @@ export const useChatStore = create((set, get) => ({
       
       set({ users: fetchedUsers });
     } catch (error) {
-      console.error("Error fetching users:", error);
-      toast.error(error.response?.data?.message || "Failed to fetch users");
-      set({ users: [] }); // Fallback to empty array to prevent iterable errors
+      console.warn("Background fetch users error:", error.message);
+      if (!get().users?.length) set({ users: [] });
     } finally {
       set({ isUsersLoading: false });
     }
@@ -113,6 +114,47 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  deleteMessage: async (messageId) => {
+    try {
+      await axiosInstance.delete(`/messages/delete/${messageId}`);
+      set({
+        messages: get().messages.map((m) =>
+          (m._id || m.id) === messageId ? { ...m, isDeleted: true } : m
+        ),
+      });
+      toast.success("Message deleted");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete message");
+    }
+  },
+
+  editMessage: async (messageId, text) => {
+    try {
+      const res = await axiosInstance.put(`/messages/edit/${messageId}`, { text });
+      set({
+        messages: get().messages.map((m) =>
+          (m._id || m.id) === messageId ? { ...m, text, isEdited: true } : m
+        ),
+      });
+      toast.success("Message updated");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to edit message");
+    }
+  },
+
+  reactToMessage: async (messageId, emoji) => {
+    try {
+      const res = await axiosInstance.post(`/messages/react/${messageId}`, { emoji });
+      set({
+        messages: get().messages.map((m) =>
+          (m._id || m.id) === messageId ? { ...m, reactions: res.data?.reactions || [] } : m
+        ),
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to react");
+    }
+  },
+
   setReplyingTo: (message) => set({ replyingTo: message }),
   setSelectedUser: (selectedUser) => set({ selectedUser }),
 
@@ -131,6 +173,30 @@ export const useChatStore = create((set, get) => ({
       set({ messages: [...current, newMessage] });
     });
 
+    socket.on("messageEdited", ({ messageId, text, isEdited }) => {
+      set({
+        messages: get().messages.map((m) =>
+          (m._id || m.id) === messageId ? { ...m, text, isEdited } : m
+        ),
+      });
+    });
+
+    socket.on("messageDeleted", (messageId) => {
+      set({
+        messages: get().messages.map((m) =>
+          (m._id || m.id) === messageId ? { ...m, isDeleted: true } : m
+        ),
+      });
+    });
+
+    socket.on("messageReacted", ({ messageId, reactions }) => {
+      set({
+        messages: get().messages.map((m) =>
+          (m._id || m.id) === messageId ? { ...m, reactions } : m
+        ),
+      });
+    });
+
     socket.on("typing", (data) => {
       const selectedId = selectedUser.id || selectedUser._id;
       if (data.senderId === selectedId) set({ isTyping: true });
@@ -146,6 +212,9 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (socket) {
       socket.off("newMessage");
+      socket.off("messageEdited");
+      socket.off("messageDeleted");
+      socket.off("messageReacted");
       socket.off("typing");
       socket.off("stopTyping");
     }
