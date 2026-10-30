@@ -1,23 +1,27 @@
 {
   "name": "chatflow",
-  "version": "1.0.0",
-  "description": "",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "build": "npm --prefix client install && npm --prefix client run build",
-    "build:all": "npm install --prefix server && npm install --include=dev --prefix client && npm run build --prefix client",
+    "build": "npm run build --workspace client",
+    "dev": "npm run dev --workspace client",
+    "server:dev": "npm run dev --workspace server",
     "start": "node server/src/server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ialksng/ChatFlow.git"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/ialksng/ChatFlow/issues"
   },

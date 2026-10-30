@@ -97,3 +97,4 @@ export default function GoogleAuthButton({ label = "Continue with Google" }) {
     </>
   );
 }
+
