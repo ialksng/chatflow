@@ -1,235 +1,169 @@
-import { createClient } from "@supabase/supabase-js";
+import Message from "../models/message.model.js";
+import User from "../models/user.model.js";
+import cloudinary from "../lib/cloudinary.js";
 import { io, getReceiverSocketId, INDRA_AI_ID } from "../lib/socket.js";
-import WebSocket from "ws"; 
-
-// CRITICAL FIX: Match the exact same transport configuration here
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-  global: { WebSocket: WebSocket },
-  realtime: { transport: WebSocket }
-});
 
 export const getUsersForSidebar = async (req, res) => {
   try {
-    const currentUserId = req.user.id;
+    const loggedInUserId = req.user._id;
+    const users = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
 
-    const { data: interactionData } = await supabase
-      .from("messages")
-      .select("sender_id, receiver_id")
-      .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`);
+    const formattedUsers = users.map((u) => ({
+      _id: u._id.toString(),
+      id: u._id.toString(),
+      email: u.email,
+      fullName: u.fullName,
+      profilePic: u.profilePic || "",
+      isAI: false,
+    }));
 
-    const associatedIds = [
-      ...new Set(interactionData?.flatMap((m) => [m.sender_id, m.receiver_id]).filter((id) => id !== currentUserId))
-    ];
+    // Add Indra AI assistant at the top
+    formattedUsers.unshift({
+      _id: INDRA_AI_ID,
+      id: INDRA_AI_ID,
+      email: "ai@indra.ialksng.me",
+      fullName: "Indra AI",
+      profilePic: `${process.env.CLIENT_URL || "https://ialksng.me"}/avatar.png`,
+      isAI: true,
+    });
 
-    const { data: { users }, error } = await supabase.auth.admin.listUsers();
-    if (error) throw error;
-
-    let matchedUsers = users
-      .filter((u) => associatedIds.includes(u.id) && u.id !== INDRA_AI_ID)
-      .map((u) => ({
-        _id: u.id,
-        id: u.id, // Support both formats
-        email: u.email,
-        fullName: u.user_metadata?.fullName || "User",
-        profilePic: u.user_metadata?.avatar_url || "",
-        isAI: false
-      }));
-
-    const indraIdentityRecord = users.find(u => u.id === INDRA_AI_ID);
-    if (indraIdentityRecord) {
-      matchedUsers.unshift({
-        _id: INDRA_AI_ID,
-        id: INDRA_AI_ID,
-        email: indraIdentityRecord.email,
-        fullName: indraIdentityRecord.user_metadata?.fullName || "Indra AI",
-        profilePic: "https://indra.ialksng.me/assets/bot.gif", // Or your preferred asset
-        isAI: true
-      });
-    } else {
-      // Fallback if Indra doesn't exist in Supabase auth yet
-      matchedUsers.unshift({
-        _id: INDRA_AI_ID,
-        id: INDRA_AI_ID,
-        email: "ai@indra.ialksng.me",
-        fullName: "Indra AI",
-        profilePic: "/bot.gif",
-        isAI: true
-      });
-    }
-
-    res.status(200).json(matchedUsers);
+    res.status(200).json(formattedUsers);
   } catch (error) {
     console.error("Error in getUsersForSidebar:", error.message);
-    res.status(500).json({ error: "Sidebar processing dropped out." });
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 };
 
 export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
-    const myId = req.user.id;
+    const myId = req.user._id.toString();
 
-    const { data: messages, error } = await supabase
-      .from("messages")
-      .select("*, reply_to(*)") // Also fetch the message being replied to
-      .or(`and(sender_id.eq.${myId},receiver_id.eq.${userToChatId}),and(sender_id.eq.${userToChatId},receiver_id.eq.${myId})`)
-      .order("created_at", { ascending: true });
-
-    if (error) throw error;
+    const messages = await Message.find({
+      $or: [
+        { senderId: myId, receiverId: userToChatId },
+        { senderId: userToChatId, receiverId: myId },
+      ],
+      isDeleted: { $ne: true },
+    })
+      .populate("replyTo")
+      .sort({ createdAt: 1 });
 
     const normalizedMessages = messages.map((m) => ({
-      _id: m.id,
-      senderId: m.sender_id,
-      receiverId: m.receiver_id,
+      _id: m._id.toString(),
+      senderId: m.senderId?.toString() || m.senderId,
+      receiverId: m.receiverId?.toString() || m.receiverId,
       text: m.text,
-      image: m.image_url,
-      createdAt: m.created_at,
-      isEdited: m.is_edited || false,
-      replyTo: m.reply_to ? {
-        _id: m.reply_to.id,
-        text: m.reply_to.text,
-        image: m.reply_to.image_url,
-        senderId: m.reply_to.sender_id
-      } : null
+      image: m.image,
+      createdAt: m.createdAt,
+      isEdited: m.isEdited || false,
+      reactions: m.reactions || [],
+      replyTo: m.replyTo
+        ? {
+            _id: m.replyTo._id?.toString(),
+            text: m.replyTo.text,
+            image: m.replyTo.image,
+            senderId: m.replyTo.senderId?.toString(),
+          }
+        : null,
     }));
 
     res.status(200).json(normalizedMessages);
   } catch (error) {
-    console.error("Error in getMessages: ", error.message);
+    console.error("Error in getMessages:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image, replyTo } = req.body; // Restored replyTo extraction
+    const { text, image, replyTo } = req.body;
     const { id: receiverId } = req.params;
-    const senderId = req.user.id;
+    const senderId = req.user._id.toString();
 
     let imageUrl = null;
-
     if (image) {
-      const buffer = Buffer.from(image.replace(/^data:image\/\w+;base64,/, ""), 'base64');
-      const fileName = `${senderId}-${Date.now()}.png`;
-
-      const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from('chat-uploads')
-        .upload(fileName, buffer, {
-          contentType: 'image/png',
-          upsert: false
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase
-        .storage
-        .from('chat-uploads')
-        .getPublicUrl(fileName);
-
-      imageUrl = publicUrl;
+      const uploadResponse = await cloudinary.uploader.upload(image);
+      imageUrl = uploadResponse.secure_url;
     }
 
-    // 1. Save User's Message
-    const { data: insertedMsg, error } = await supabase
-      .from("messages")
-      .insert([
-        {
-          sender_id: senderId,
-          receiver_id: receiverId,
-          text,
-          image_url: imageUrl,
-          reply_to: replyTo || null // Save reply association
-        },
-      ])
-      .select()
-      .single();
+    const newMessage = new Message({
+      senderId,
+      receiverId,
+      text: text || "",
+      image: imageUrl,
+      replyTo: replyTo || null,
+    });
 
-    if (error) throw error;
+    await newMessage.save();
 
     const formattedResponse = {
-      _id: insertedMsg.id,
-      senderId: insertedMsg.sender_id,
-      receiverId: insertedMsg.receiver_id,
-      text: insertedMsg.text,
-      image: insertedMsg.image_url,
-      createdAt: insertedMsg.created_at,
-      replyTo: replyTo || null
+      _id: newMessage._id.toString(),
+      senderId,
+      receiverId,
+      text: newMessage.text,
+      image: newMessage.image,
+      createdAt: newMessage.createdAt,
+      replyTo: replyTo || null,
     };
 
-    // 2. Respond to the client immediately
     res.status(201).json(formattedResponse);
 
-    // 3. Routing Logic
     if (receiverId === INDRA_AI_ID) {
-      // --- INDRA AI FLOW ---
       const senderSocketId = getReceiverSocketId(senderId);
-      
-      try {
-        // Emit typing indicator to the user
-        if (senderSocketId) io.to(senderSocketId).emit("typing", { senderId: INDRA_AI_ID });
+      if (senderSocketId) io.to(senderSocketId).emit("typing", { senderId: INDRA_AI_ID });
 
-        // Forward message to Indra API Microservice
-        const indraResponse = await fetch("https://indra.ialksng.me/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: senderId,
-            message: text,
-            imageUrl: imageUrl
-          })
+      try {
+        let aiTextResponse = "";
+        try {
+          const indraResponse = await fetch("https://indra.ialksng.me/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: senderId, message: text, imageUrl }),
+          });
+
+          if (indraResponse.ok) {
+            const indraData = await indraResponse.json();
+            aiTextResponse = indraData.reply || indraData.text || indraData.response;
+          }
+        } catch (e) {
+          // Fallback if standalone microservice is offline
+        }
+
+        if (!aiTextResponse) {
+          aiTextResponse = "I have received your message. I am currently running in integrated mode.";
+        }
+
+        const aiMsg = await Message.create({
+          senderId: INDRA_AI_ID,
+          receiverId: senderId,
+          text: aiTextResponse,
         });
 
-        if (!indraResponse.ok) throw new Error("Indra API rejected the request");
-        
-        const indraData = await indraResponse.json();
-        const aiTextResponse = indraData.reply || indraData.text || indraData.response || "I am processing your request.";
-
-        // Save AI's response to Supabase
-        const { data: aiMsg, error: aiError } = await supabase
-          .from("messages")
-          .insert([
-            {
-              sender_id: INDRA_AI_ID,
-              receiver_id: senderId,
-              text: aiTextResponse,
-            },
-          ])
-          .select()
-          .single();
-
-        if (aiError) throw aiError;
-
         const formattedAiResponse = {
-          _id: aiMsg.id,
-          senderId: aiMsg.sender_id,
-          receiverId: aiMsg.receiver_id,
+          _id: aiMsg._id.toString(),
+          senderId: INDRA_AI_ID,
+          receiverId: senderId,
           text: aiMsg.text,
-          createdAt: aiMsg.created_at,
+          createdAt: aiMsg.createdAt,
         };
 
-        // Emit AI message back to the user
         if (senderSocketId) {
           io.to(senderSocketId).emit("newMessage", formattedAiResponse);
         }
-
       } catch (aiError) {
-        console.error("Indra AI processing error:", aiError.message);
+        console.error("Indra AI response error:", aiError.message);
       } finally {
         if (senderSocketId) io.to(senderSocketId).emit("stopTyping", { senderId: INDRA_AI_ID });
       }
     } else {
-      // --- STANDARD USER FLOW ---
       const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("newMessage", formattedResponse);
       }
     }
   } catch (error) {
-    console.error("Error in sendMessage: ", error.message);
+    console.error("Error in sendMessage:", error.message);
     if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -237,20 +171,22 @@ export const sendMessage = async (req, res) => {
 export const deleteMessage = async (req, res) => {
   try {
     const { id: messageId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user._id.toString();
 
-    const { error } = await supabase
-      .from("messages")
-      .delete()
-      .match({ id: messageId, sender_id: userId });
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
 
-    if (error) throw error;
+    if (message.senderId.toString() !== userId) {
+      return res.status(403).json({ message: "Unauthorized to delete this message" });
+    }
+
+    message.isDeleted = true;
+    await message.save();
 
     io.emit("messageDeleted", messageId);
-
-    res.status(200).json({ message: "Message deleted successfully", id: messageId });
+    res.status(200).json({ message: "Message deleted successfully" });
   } catch (error) {
-    console.error("Error in deleteMessage: ", error.message);
+    console.error("Error in deleteMessage:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -259,32 +195,23 @@ export const editMessage = async (req, res) => {
   try {
     const { id: messageId } = req.params;
     const { text } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id.toString();
 
-    const { data, error } = await supabase
-      .from("messages")
-      .update({ text: text, is_edited: true }) 
-      .match({ id: messageId, sender_id: userId })
-      .select()
-      .single();
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
 
-    if (error) throw error;
+    if (message.senderId.toString() !== userId) {
+      return res.status(403).json({ message: "Unauthorized to edit this message" });
+    }
 
-    const formattedMessage = {
-      _id: data.id,
-      senderId: data.sender_id,
-      receiverId: data.receiver_id,
-      text: data.text,
-      image: data.image_url,
-      createdAt: data.created_at,
-      isEdited: data.is_edited
-    };
+    message.text = text;
+    message.isEdited = true;
+    await message.save();
 
-    io.emit("messageEdited", formattedMessage);
-
-    res.status(200).json(formattedMessage);
+    io.emit("messageEdited", { messageId, text, isEdited: true });
+    res.status(200).json(message);
   } catch (error) {
-    console.error("Error in editMessage: ", error.message);
+    console.error("Error in editMessage:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -292,17 +219,29 @@ export const editMessage = async (req, res) => {
 export const reactToMessage = async (req, res) => {
   try {
     const { id: messageId } = req.params;
-    const { reaction } = req.body; 
-    const userId = req.user.id;
+    const { emoji } = req.body;
+    const userId = req.user._id.toString();
 
-    // Optional: If you want to persist reactions, add an update to Supabase here
-    // e.g., appending to a JSONB 'reactions' column
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
 
-    io.emit("messageReacted", { messageId, reaction, userId });
+    message.reactions = message.reactions || [];
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.user?.toString() === userId
+    );
 
-    res.status(200).json({ message: "Reaction added" });
+    if (existingIndex > -1) {
+      message.reactions[existingIndex].emoji = emoji;
+    } else {
+      message.reactions.push({ user: userId, emoji });
+    }
+
+    await message.save();
+
+    io.emit("messageReacted", { messageId, reactions: message.reactions });
+    res.status(200).json(message);
   } catch (error) {
-    console.error("Error in reactToMessage: ", error.message);
+    console.error("Error in reactToMessage:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -312,11 +251,11 @@ export const getTurnCredentials = async (req, res) => {
     res.status(200).json({
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" }
-      ]
+        { urls: "stun:stun1.l.google.com:19302" },
+      ],
     });
   } catch (error) {
-    console.error("Error in getTurnCredentials: ", error.message);
+    console.error("Error in getTurnCredentials:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

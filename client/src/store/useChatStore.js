@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
 
-export const INDRA_AI_ID = "00000000-0000-0000-0000-000000000000";
+export const INDRA_AI_ID = "000000000000000000000000";
 
 export const useChatStore = create((set, get) => ({
   messages: [],

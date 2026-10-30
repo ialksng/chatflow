@@ -1,6 +1,6 @@
 # ChatFlow
 
-A modern, full-stack real-time communication platform featuring 1-on-1 messaging, WebRTC audio/video calls, interactive collaborative whiteboard, AI assistant integration, and media sharing.
+A modern, full-stack real-time communication platform featuring 1-on-1 messaging, WebRTC audio/video calls, collaborative whiteboard, AI assistant, and full authentication (Email/Password, Google OAuth, and Forgot/Reset Password).
 
 ---
 
@@ -13,12 +13,17 @@ A modern, full-stack real-time communication platform featuring 1-on-1 messaging
 
 ## ✨ Features
 
+- **Robust Authentication**:
+  - Email & Password sign-up and sign-in with bcrypt encryption.
+  - **Google OAuth Login**: One-click Google sign-in.
+  - **Password Recovery**: Secure Forgot Password and Reset Password workflow via timed crypto tokens.
+  - Protected routing: visiting the root route (`/work/projects/chatflow/app`) directly opens login/signup for unauthenticated users, and enters the chat interface once authenticated.
+- **Pure MongoDB Architecture**: Fully decoupled from Supabase — uses MongoDB and Mongoose for all user profiles, messages, and reaction models.
 - **Real-Time Messaging**: Built on Socket.IO for instant message delivery, online indicators, and typing states.
 - **WebRTC Calling**: Peer-to-peer audio and video calls with screen-sharing capabilities.
 - **Collaborative Whiteboard**: Real-time collaborative canvas drawing during calls.
 - **AI Assistant Integration**: Integrated Indra AI conversational assistant.
 - **Media Uploads**: Image sharing backed by Cloudinary.
-- **Dual Persistence**: MongoDB for structured user data and Supabase for realtime event persistence and storage.
 - **Subpath Hosting Ready**: Configured out-of-the-box to run seamlessly under subpaths (such as `/work/projects/chatflow/app`).
 
 ---
@@ -26,7 +31,7 @@ A modern, full-stack real-time communication platform featuring 1-on-1 messaging
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS v4, DaisyUI, Zustand, Lucide Icons, React Router v7
-- **Backend**: Node.js, Express, Socket.IO, WebSockets (`ws`), Mongoose, Supabase Client, Cloudinary, JWT
+- **Backend**: Node.js, Express, Socket.IO, Mongoose (MongoDB), Cloudinary, JWT, bcryptjs
 
 ---
 
@@ -48,8 +53,9 @@ cp server/.env.example server/.env
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `VITE_BASE_PATH` | No | `/work/projects/chatflow/app/` | Base URL path where the frontend app is hosted. |
-| `VITE_API_URL` | No | `/chatflow-api` | Base URL for REST API calls. Proxied to backend in production via `vercel.json`. |
+| `VITE_API_URL` | No | `/chatflow-api` | Base URL for REST API calls (proxied to backend in production via `vercel.json`). |
 | `VITE_SOCKET_URL` | No | `https://chatflow.ialksng.me` | WebSocket / Socket.IO server endpoint for real-time chat and signaling. |
+| `VITE_GOOGLE_CLIENT_ID` | Optional | `""` | Google OAuth Web Client ID for enabling Google Sign-In button. |
 
 ### 2. Server (Backend - Node.js)
 
@@ -59,10 +65,8 @@ cp server/.env.example server/.env
 | `NODE_ENV` | No | `production` / `development` | Node environment mode. |
 | `CLIENT_URL` | Yes | `https://ialksng.me` | Allowed CORS origin for the frontend application. |
 | `MONGODB_URI` | Yes | `mongodb+srv://...` | Connection URI for the MongoDB database cluster. |
-| `SUPABASE_URL` | Yes | `https://<id>.supabase.co` | Supabase project URL for realtime data sync. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | `eyJhbGci...` | Supabase service role secret key. |
-| `SUPABASE_JWT_SECRET` | Yes | `your_secret` | Secret used to verify Supabase JWT tokens. |
-| `JWT_SECRET` | Yes | `your_jwt_secret` | Secret key used for signing session auth cookies. |
+| `JWT_SECRET` | Yes | `your_jwt_secret` | Secret key used for signing session auth tokens and cookies. |
+| `GOOGLE_CLIENT_ID` | Optional | `your-google-client-id...` | Google OAuth Client ID for backend token validation. |
 | `CLOUDINARY_NAME` | Yes | `your_cloud_name` | Cloudinary account cloud name. |
 | `CLOUDINARY_API_KEY` | Yes | `your_api_key` | Cloudinary API key for uploading media. |
 | `CLOUDINARY_API_SECRET` | Yes | `your_api_secret` | Cloudinary API secret for signing uploads. |
@@ -74,7 +78,7 @@ cp server/.env.example server/.env
 ### Prerequisites
 
 - Node.js (>= 18.0.0)
-- npm
+- MongoDB instance (Atlas or local)
 
 ### 1. Clone & Install Dependencies
 

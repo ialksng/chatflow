@@ -3,6 +3,8 @@ import Navbar from "./components/Navbar";
 import HomePage from "./pages/HomePage";
 import SignUpPage from "./pages/SignUpPage";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import CallOverlay from "./components/CallOverlay";
@@ -10,17 +12,17 @@ import CallOverlay from "./components/CallOverlay";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
 import { useThemeStore } from "./store/useThemeStore";
-import { useCallStore } from "./store/useCallStore"; // 👈 Import call store
+import { useCallStore } from "./store/useCallStore";
 import { useEffect } from "react";
 
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
 const App = () => {
-  const { authUser, checkAuth, isCheckingAuth } = useAuthStore(); 
+  const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
   const { theme } = useThemeStore();
-  const { listenToCallEvents, stopListeningToCallEvents } = useCallStore(); // 👈 Extract call events
-  
+  const { listenToCallEvents, stopListeningToCallEvents } = useCallStore();
+
   // Check Authentication on mount
   useEffect(() => {
     checkAuth();
@@ -31,7 +33,7 @@ const App = () => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // 🌟 Listen to incoming WebRTC calls when the user is logged in
+  // Listen to incoming WebRTC calls when user is logged in
   useEffect(() => {
     if (authUser) {
       listenToCallEvents();
@@ -41,25 +43,48 @@ const App = () => {
     };
   }, [authUser, listenToCallEvents, stopListeningToCallEvents]);
 
-  if (isCheckingAuth && !authUser) return (
-    <div className="flex items-center justify-center h-screen">
-      <Loader className="size-10 animate-spin" />
-    </div>
-  );
+  if (isCheckingAuth && !authUser) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-base-100">
+        <Loader className="size-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div>
       <Navbar />
-      
-      {/* 🌟 Only render the Call Overlay if the user is logged in */}
+
+      {/* Only render Call Overlay if user is logged in */}
       {authUser && <CallOverlay />}
 
       <Routes>
-        <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />
-        <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
-        <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
+        <Route
+          path="/"
+          element={authUser ? <HomePage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/signup"
+          element={!authUser ? <SignUpPage /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="/login"
+          element={!authUser ? <LoginPage /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="/forgot-password"
+          element={!authUser ? <ForgotPasswordPage /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="/reset-password/:token"
+          element={!authUser ? <ResetPasswordPage /> : <Navigate to="/" replace />}
+        />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
+        <Route
+          path="/profile"
+          element={authUser ? <ProfilePage /> : <Navigate to="/login" replace />}
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <Toaster />

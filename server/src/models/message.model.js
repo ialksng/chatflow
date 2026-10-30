@@ -3,20 +3,22 @@ import mongoose from "mongoose";
 const messageSchema = new mongoose.Schema(
   {
     senderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: mongoose.Schema.Types.Mixed,
       required: true,
+      ref: "User",
     },
     receiverId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: mongoose.Schema.Types.Mixed,
       required: true,
+      ref: "User",
     },
     text: {
       type: String,
+      default: "",
     },
     image: {
       type: String,
+      default: null,
     },
     isEdited: {
       type: Boolean,
@@ -24,7 +26,7 @@ const messageSchema = new mongoose.Schema(
     },
     isDeleted: {
       type: Boolean,
-      default: false, 
+      default: false,
     },
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
@@ -33,9 +35,9 @@ const messageSchema = new mongoose.Schema(
     },
     reactions: [
       {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        user: { type: mongoose.Schema.Types.Mixed, ref: "User" },
         emoji: { type: String },
-      }
+      },
     ],
   },
   { timestamps: true }

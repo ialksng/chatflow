@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore.js";
 import AuthImage from "../components/AuthImage.jsx";
+import GoogleAuthButton from "../components/GoogleAuthButton.jsx";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
-import logo from "../assets/logo-auth.png"
+import logo from "../assets/logo-auth.png";
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,9 +23,9 @@ const LoginPage = () => {
     <div className="min-h-screen pt-16 grid lg:grid-cols-2">
       {/* Left Side */}
       <div className="flex flex-col justify-center items-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-md space-y-6">
           {/* Logo */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="flex flex-col items-center gap-2 group">
               <div
                 className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20
@@ -41,8 +42,13 @@ const LoginPage = () => {
             </div>
           </div>
 
+          {/* Google Sign-in */}
+          <GoogleAuthButton label="Continue with Google" />
+
+          <div className="divider text-xs text-base-content/40 uppercase">or sign in with email</div>
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">Email</span>
@@ -57,14 +63,23 @@ const LoginPage = () => {
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
                 />
               </div>
             </div>
 
             <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Password</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="label">
+                  <span className="label-text font-medium">Password</span>
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-base-content/40" />
@@ -75,6 +90,7 @@ const LoginPage = () => {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
                 />
                 <button
                   type="button"
@@ -94,7 +110,7 @@ const LoginPage = () => {
               {isLoggingIn ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading...
+                  Signing in...
                 </>
               ) : (
                 "Sign in"
@@ -102,10 +118,10 @@ const LoginPage = () => {
             </button>
           </form>
 
-          <div className="text-center">
+          <div className="text-center pt-2">
             <p className="text-base-content/60">
               Don&apos;t have an account?{" "}
-              <Link to="/signup" className="link link-primary">
+              <Link to="/signup" className="link link-primary font-medium">
                 Create account
               </Link>
             </p>
@@ -118,4 +134,5 @@ const LoginPage = () => {
     </div>
   );
 };
+
 export default LoginPage;
