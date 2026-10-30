@@ -53,6 +53,7 @@ const ChatContainer = () => {
     subscribeToMessages,
     unsubscribeFromMessages,
     isTyping,
+    isAiTyping,
     setReplyingTo,
     deleteMessage,
     editMessage,
@@ -79,7 +80,7 @@ const ChatContainer = () => {
     if (scrollRef.current && !editingMessageId) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isTyping, editingMessageId]);
+  }, [messages, isTyping, isAiTyping, editingMessageId]);
 
   const handleStartEdit = (message) => {
     setEditingMessageId(message._id);
@@ -130,6 +131,10 @@ const ChatContainer = () => {
                   <img
                     src={isMine ? authUser.profilePic || `${import.meta.env.BASE_URL}avatar.png` : selectedUser.profilePic || `${import.meta.env.BASE_URL}avatar.png`}
                     alt="profile pic"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = `${import.meta.env.BASE_URL}avatar.png`;
+                    }}
                   />
                 </div>
               </div>
@@ -276,18 +281,24 @@ const ChatContainer = () => {
           );
         })}
 
-        {isTyping && (
+        {(isTyping || isAiTyping) && (
           <div className="chat chat-start">
             <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
                   <img
                     src={selectedUser.profilePic || `${import.meta.env.BASE_URL}avatar.png`}
                     alt="profile pic"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = `${import.meta.env.BASE_URL}avatar.png`;
+                    }}
                   />
               </div>
             </div>
             <div className="chat-header mb-1">
-              <span className="text-xs opacity-50 ml-1">Typing...</span>
+              <span className="text-xs opacity-50 ml-1">
+                {selectedUser.isAI ? "Thinking..." : "Typing..."}
+              </span>
             </div>
             <div className="chat-bubble flex items-center justify-center w-16 h-12 bg-base-200">
               <span className="loading loading-dots loading-md"></span>

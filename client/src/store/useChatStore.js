@@ -3,7 +3,8 @@ import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
 
-export const INDRA_AI_ID = "000000000000000000000000";
+export const AI_ASSISTANT_ID = "000000000000000000000000";
+export const INDRA_AI_ID = AI_ASSISTANT_ID;
 
 export const useChatStore = create((set, get) => ({
   messages: [],
@@ -21,15 +22,16 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get("/messages/users");
       let fetchedUsers = res.data || [];
       
-      // Ensure Indra AI exists in the contact list natively
-      const hasIndra = fetchedUsers.some(u => (u.id || u._id) === INDRA_AI_ID);
-      if (!hasIndra) {
+      // Ensure AI Assistant exists in the contact list natively
+      const hasAi = fetchedUsers.some(u => (u.id || u._id) === AI_ASSISTANT_ID);
+      if (!hasAi) {
         fetchedUsers.unshift({
-          _id: INDRA_AI_ID,
-          id: INDRA_AI_ID,
-          fullName: "Indra AI",
-          email: "ai@indra.ialksng.me",
-          profilePic: `${import.meta.env.BASE_URL}avatar.png` // Or your preferred avatar
+          _id: AI_ASSISTANT_ID,
+          id: AI_ASSISTANT_ID,
+          fullName: "AI Assistant",
+          email: "ai@chatflow.app",
+          profilePic: `${import.meta.env.BASE_URL}avatar.png`,
+          isAI: true,
         });
       }
       
@@ -56,26 +58,32 @@ export const useChatStore = create((set, get) => ({
   },
   
   sendMessage: async (messageData) => {
-    const { selectedUser, messages, replyingTo } = get();
+    const { selectedUser, replyingTo } = get();
     const userId = selectedUser.id || selectedUser._id;
+    const isAi = userId === AI_ASSISTANT_ID || selectedUser?.isAI;
     
     try {
       const dataToSend = replyingTo 
         ? { ...messageData, replyTo: replyingTo.id || replyingTo._id } 
         : messageData;
 
-      // Optimistic UI update (optional, but good for perceived speed)
-      if (userId === INDRA_AI_ID) set({ isAiTyping: true });
+      if (isAi) set({ isAiTyping: true });
 
       const res = await axiosInstance.post(`/messages/send/${userId}`, dataToSend);
+      
+      const newMessages = [res.data];
+      if (res.data.aiMessage) {
+        newMessages.push(res.data.aiMessage);
+      }
+
       set({ 
-        messages: [...get().messages, res.data],
+        messages: [...get().messages, ...newMessages],
         replyingTo: null 
       });
     } catch (error) {
       toast.error(error.response?.data?.message || "Message failed to send");
     } finally {
-      if (userId === INDRA_AI_ID) set({ isAiTyping: false });
+      if (isAi) set({ isAiTyping: false });
     }
   },
 
@@ -91,9 +99,10 @@ export const useChatStore = create((set, get) => ({
 
     socket.on("newMessage", (newMessage) => {
       const selectedId = selectedUser.id || selectedUser._id;
-      // Handle Supabase UUIDs
-      if (newMessage.senderId !== selectedId) return;
-      set({ messages: [...get().messages, newMessage] });
+      if (newMessage.senderId !== selectedId && newMessage.receiverId !== selectedId) return;
+      const current = get().messages;
+      if (current.some(m => (m._id || m.id) === (newMessage._id || newMessage.id))) return;
+      set({ messages: [...current, newMessage] });
     });
 
     socket.on("typing", (data) => {

@@ -1,7 +1,8 @@
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import cloudinary from "../lib/cloudinary.js";
-import { io, getReceiverSocketId, INDRA_AI_ID } from "../lib/socket.js";
+import { io, getReceiverSocketId, AI_ASSISTANT_ID, INDRA_AI_ID } from "../lib/socket.js";
+import { getGroqAiResponse } from "../lib/groq.js";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
@@ -17,13 +18,13 @@ export const getUsersForSidebar = async (req, res) => {
       isAI: false,
     }));
 
-    // Add Indra AI assistant at the top
+    // Add AI assistant at the top
     formattedUsers.unshift({
-      _id: INDRA_AI_ID,
-      id: INDRA_AI_ID,
-      email: "ai@indra.ialksng.me",
-      fullName: "Indra AI",
-      profilePic: `${process.env.CLIENT_URL || "https://ialksng.me"}/avatar.png`,
+      _id: AI_ASSISTANT_ID,
+      id: AI_ASSISTANT_ID,
+      email: "ai@chatflow.app",
+      fullName: "AI Assistant",
+      profilePic: `${process.env.CLIENT_URL || "https://ialksng.me"}/work/projects/chatflow/app/avatar.png`,
       isAI: true,
     });
 
@@ -107,42 +108,34 @@ export const sendMessage = async (req, res) => {
       replyTo: replyTo || null,
     };
 
-    res.status(201).json(formattedResponse);
-
-    if (receiverId === INDRA_AI_ID) {
+    if (receiverId === AI_ASSISTANT_ID || receiverId === INDRA_AI_ID) {
       const senderSocketId = getReceiverSocketId(senderId);
-      if (senderSocketId) io.to(senderSocketId).emit("typing", { senderId: INDRA_AI_ID });
+      if (senderSocketId) io.to(senderSocketId).emit("typing", { senderId: AI_ASSISTANT_ID });
 
+      let formattedAiResponse = null;
       try {
-        let aiTextResponse = "";
-        try {
-          const indraResponse = await fetch("https://indra.ialksng.me/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: senderId, message: text, imageUrl }),
-          });
+        const recentHistory = await Message.find({
+          $or: [
+            { senderId, receiverId: AI_ASSISTANT_ID },
+            { senderId: AI_ASSISTANT_ID, receiverId: senderId },
+          ],
+          isDeleted: { $ne: true },
+        })
+          .sort({ createdAt: -1 })
+          .limit(10);
+        recentHistory.reverse();
 
-          if (indraResponse.ok) {
-            const indraData = await indraResponse.json();
-            aiTextResponse = indraData.reply || indraData.text || indraData.response;
-          }
-        } catch (e) {
-          // Fallback if standalone microservice is offline
-        }
-
-        if (!aiTextResponse) {
-          aiTextResponse = "I have received your message. I am currently running in integrated mode.";
-        }
+        const aiTextResponse = await getGroqAiResponse(recentHistory, text);
 
         const aiMsg = await Message.create({
-          senderId: INDRA_AI_ID,
+          senderId: AI_ASSISTANT_ID,
           receiverId: senderId,
           text: aiTextResponse,
         });
 
-        const formattedAiResponse = {
+        formattedAiResponse = {
           _id: aiMsg._id.toString(),
-          senderId: INDRA_AI_ID,
+          senderId: AI_ASSISTANT_ID,
           receiverId: senderId,
           text: aiMsg.text,
           createdAt: aiMsg.createdAt,
@@ -152,15 +145,22 @@ export const sendMessage = async (req, res) => {
           io.to(senderSocketId).emit("newMessage", formattedAiResponse);
         }
       } catch (aiError) {
-        console.error("Indra AI response error:", aiError.message);
+        console.error("AI Assistant response error:", aiError.message);
       } finally {
-        if (senderSocketId) io.to(senderSocketId).emit("stopTyping", { senderId: INDRA_AI_ID });
+        if (senderSocketId) io.to(senderSocketId).emit("stopTyping", { senderId: AI_ASSISTANT_ID });
       }
-    } else {
-      const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("newMessage", formattedResponse);
-      }
+
+      return res.status(201).json({
+        ...formattedResponse,
+        aiMessage: formattedAiResponse,
+      });
+    }
+
+    res.status(201).json(formattedResponse);
+
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", formattedResponse);
     }
   } catch (error) {
     console.error("Error in sendMessage:", error.message);

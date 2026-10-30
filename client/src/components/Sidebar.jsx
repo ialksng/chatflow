@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useChatStore, INDRA_AI_ID } from "../store/useChatStore";
+import { useChatStore, AI_ASSISTANT_ID, INDRA_AI_ID } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users, Bot } from "lucide-react";
@@ -13,20 +13,32 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
-  // 1. Filter safely, ALWAYS keep Indra AI visible
+  const isUserAi = (user) => {
+    const uId = user?.id || user?._id;
+    return Boolean(
+      user?.isAI ||
+      uId === AI_ASSISTANT_ID ||
+      uId === INDRA_AI_ID ||
+      user?.email === "ai@chatflow.app" ||
+      user?.fullName?.toLowerCase().includes("ai assistant") ||
+      user?.fullName === "Indra AI"
+    );
+  };
+
+  // 1. Filter safely, ALWAYS keep AI Assistant visible
   const filteredUsers = showOnlineOnly
     ? (users || []).filter((user) => {
         const uId = user.id || user._id;
-        return onlineUsers.includes(uId) || uId === INDRA_AI_ID;
+        return onlineUsers.includes(uId) || isUserAi(user);
       })
     : (users || []);
 
-  // 2. Pin Indra AI to the top based on the UUID
+  // 2. Pin AI Assistant to the top based on the UUID
   const sortedUsers = [...filteredUsers].sort((a, b) => {
-    const aId = a.id || a._id;
-    const bId = b.id || b._id;
-    if (aId === INDRA_AI_ID) return -1;
-    if (bId === INDRA_AI_ID) return 1;
+    const aIsAi = isUserAi(a);
+    const bIsAi = isUserAi(b);
+    if (aIsAi) return -1;
+    if (bIsAi) return 1;
     return 0;
   });
 
@@ -56,13 +68,14 @@ const Sidebar = () => {
         {sortedUsers.map((user) => {
           const uId = user.id || user._id;
           const isSelected = (selectedUser?.id || selectedUser?._id) === uId;
-          const isAi = uId === INDRA_AI_ID;
+          const isAi = isUserAi(user);
           const isOnline = onlineUsers.includes(uId);
+          const displayName = isAi ? "AI Assistant" : user.fullName;
 
           return (
             <button
               key={uId}
-              onClick={() => setSelectedUser(user)}
+              onClick={() => setSelectedUser({ ...user, fullName: displayName, isAI: isAi })}
               className={`
                 w-full p-3 flex items-center gap-3
                 hover:bg-base-300 transition-colors
@@ -72,8 +85,12 @@ const Sidebar = () => {
               <div className="relative mx-auto lg:mx-0">
                 <img
                   src={user.profilePic || `${import.meta.env.BASE_URL}avatar.png`}
-                  alt={user.fullName}
+                  alt={displayName}
                   className="size-12 object-cover rounded-full"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `${import.meta.env.BASE_URL}avatar.png`;
+                  }}
                 />
                 {(isAi || isOnline) && (
                   <span
@@ -85,7 +102,7 @@ const Sidebar = () => {
 
               <div className="hidden lg:block text-left min-w-0 flex-1">
                 <div className="font-medium truncate flex items-center gap-1">
-                  {user.fullName}
+                  {displayName}
                   {isAi && <Bot className="size-4 text-primary" />}
                 </div>
                 <div className="text-sm text-zinc-400">

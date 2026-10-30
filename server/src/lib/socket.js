@@ -27,76 +27,55 @@ const io = new Server(server, {
   },
 });
 
+import { AI_ASSISTANT_ID, getGroqAiResponse } from "./groq.js";
+
+const INDRA_AI_ID = AI_ASSISTANT_ID;
+
 const userSocketMap = {};
-const INDRA_AI_ID = "000000000000000000000000";
 
 export function getReceiverSocketId(userId) {
   if (!userId) return null;
   return userSocketMap[userId.toString()];
 }
 
-// Indra AI inference
-async function handleIndraAIInference(senderId, clientMessageText, socketId) {
+// AI Assistant inference using Groq
+async function handleAiAssistantInference(senderId, clientMessageText, socketId) {
   try {
-    io.to(socketId).emit("aiTypingState", { receiverId: INDRA_AI_ID, isTyping: true });
+    io.to(socketId).emit("aiTypingState", { receiverId: AI_ASSISTANT_ID, isTyping: true });
 
-    let aiResponseText = "";
-    try {
-      const response = await fetch("http://127.0.0.1:3001/api/v1/indra/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: clientMessageText,
-          mode: "smart",
-          conversationId: senderId,
-        }),
-      });
+    const recentHistory = await Message.find({
+      $or: [
+        { senderId, receiverId: AI_ASSISTANT_ID },
+        { senderId: AI_ASSISTANT_ID, receiverId: senderId },
+      ],
+      isDeleted: { $ne: true },
+    })
+      .sort({ createdAt: -1 })
+      .limit(10);
+    recentHistory.reverse();
 
-      if (response.ok) {
-        const decoder = new TextDecoder("utf-8");
-        for await (const chunk of response.body) {
-          const textChunk = decoder.decode(chunk, { stream: true });
-          const lines = textChunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const dataStr = line.slice(6).trim();
-              if (!dataStr) continue;
-              try {
-                const parsed = JSON.parse(dataStr);
-                if (parsed.token) aiResponseText += parsed.token;
-              } catch (e) {}
-            }
-          }
-        }
-      }
-    } catch (apiErr) {
-      console.warn("Indra microservice unreachable, generating fallback response");
-    }
-
-    if (!aiResponseText) {
-      aiResponseText = "Hello! I am Indra AI. I am currently operating in standalone mode. How can I assist you today?";
-    }
+    const aiResponseText = await getGroqAiResponse(recentHistory, clientMessageText);
 
     const insertedMsg = await Message.create({
-      senderId: INDRA_AI_ID,
+      senderId: AI_ASSISTANT_ID,
       receiverId: senderId,
       text: aiResponseText,
     });
 
     const normalizedAIPayload = {
-      _id: insertedMsg._id,
-      senderId: INDRA_AI_ID,
+      _id: insertedMsg._id.toString(),
+      senderId: AI_ASSISTANT_ID,
       receiverId: senderId,
       text: insertedMsg.text,
       image: null,
       createdAt: insertedMsg.createdAt,
     };
 
-    io.to(socketId).emit("aiTypingState", { receiverId: INDRA_AI_ID, isTyping: false });
+    io.to(socketId).emit("aiTypingState", { receiverId: AI_ASSISTANT_ID, isTyping: false });
     io.to(socketId).emit("newMessage", normalizedAIPayload);
   } catch (error) {
-    console.error("Critical Failure routing to Indra AI:", error.message);
-    io.to(socketId).emit("aiTypingState", { receiverId: INDRA_AI_ID, isTyping: false });
+    console.error("Critical Failure in AI Assistant:", error.message);
+    io.to(socketId).emit("aiTypingState", { receiverId: AI_ASSISTANT_ID, isTyping: false });
   }
 }
 
@@ -124,10 +103,6 @@ io.on("connection", (socket) => {
     userSocketMap[socket.userId.toString()] = socket.id;
   }
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
-
-  socket.on("triggerIndraAI", async ({ messageText }) => {
-    await handleIndraAIInference(socket.userId, messageText, socket.id);
-  });
 
   // WebRTC Audio/Video/Screen Signaling
   socket.on("call-user", ({ userToCall, signalData, from, name, mode }) => {
@@ -177,6 +152,14 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("triggerAiAssistant", async ({ messageText }) => {
+    await handleAiAssistantInference(socket.userId, messageText, socket.id);
+  });
+
+  socket.on("triggerIndraAI", async ({ messageText }) => {
+    await handleAiAssistantInference(socket.userId, messageText, socket.id);
+  });
+
   socket.on("disconnect", () => {
     if (socket.userId) {
       delete userSocketMap[socket.userId.toString()];
@@ -185,4 +168,4 @@ io.on("connection", (socket) => {
   });
 });
 
-export { io, app, server, INDRA_AI_ID };
+export { io, app, server, AI_ASSISTANT_ID, INDRA_AI_ID };
