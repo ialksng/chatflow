@@ -59,28 +59,54 @@ export const useChatStore = create((set, get) => ({
   
   sendMessage: async (messageData) => {
     const { selectedUser, replyingTo } = get();
+    const authUser = useAuthStore.getState().authUser;
     const userId = selectedUser.id || selectedUser._id;
     const isAi = userId === AI_ASSISTANT_ID || selectedUser?.isAI;
     
+    const tempId = "temp-" + Date.now();
+    const optimisticMessage = {
+      _id: tempId,
+      senderId: authUser?._id ? authUser._id.toString() : "me",
+      receiverId: userId,
+      text: messageData.text || "",
+      image: messageData.image || null,
+      createdAt: new Date().toISOString(),
+      replyTo: replyingTo ? {
+        _id: replyingTo.id || replyingTo._id,
+        text: replyingTo.text,
+        image: replyingTo.image,
+        senderId: replyingTo.senderId
+      } : null,
+      isOptimistic: true,
+    };
+
+    // Immediately display the user's message and avatar
+    set({
+      messages: [...get().messages, optimisticMessage],
+      replyingTo: null,
+      ...(isAi ? { isAiTyping: true } : {})
+    });
+
     try {
       const dataToSend = replyingTo 
         ? { ...messageData, replyTo: replyingTo.id || replyingTo._id } 
         : messageData;
 
-      if (isAi) set({ isAiTyping: true });
-
       const res = await axiosInstance.post(`/messages/send/${userId}`, dataToSend);
       
-      const newMessages = [res.data];
+      const current = get().messages.filter(m => m._id !== tempId);
+      const incoming = [res.data];
       if (res.data.aiMessage) {
-        newMessages.push(res.data.aiMessage);
+        incoming.push(res.data.aiMessage);
       }
 
       set({ 
-        messages: [...get().messages, ...newMessages],
-        replyingTo: null 
+        messages: [...current, ...incoming],
       });
     } catch (error) {
+      set({
+        messages: get().messages.filter(m => m._id !== tempId),
+      });
       toast.error(error.response?.data?.message || "Message failed to send");
     } finally {
       if (isAi) set({ isAiTyping: false });

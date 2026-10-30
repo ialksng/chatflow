@@ -1,6 +1,6 @@
 import { useChatStore } from "../store/useChatStore";
 import { useEffect, useRef, useState } from "react";
-import { Reply, Edit2, Trash2, SmilePlus, X, Check, Ban, Copy } from "lucide-react";
+import { Reply, Edit2, Trash2, SmilePlus, X, Check, Ban, Copy, Code } from "lucide-react";
 
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
@@ -8,36 +8,67 @@ import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢"];
 
-// Custom component to wrap code blocks with a Copy button
+// Helper to extract plain text string from React children
+const extractCodeText = (elem) => {
+  if (!elem) return "";
+  if (typeof elem === "string") return elem;
+  if (Array.isArray(elem)) return elem.map(extractCodeText).join("");
+  if (elem.props?.children) return extractCodeText(elem.props.children);
+  return "";
+};
+
+// Custom component to wrap code blocks with language badge and full copy button
 const CustomPre = ({ children, ...props }) => {
   const [copied, setCopied] = useState(false);
   
-  // ReactMarkdown passes the <code> element as a child of <pre>
-  const codeString = children?.props?.children;
+  const codeProps = children?.props || {};
+  const className = codeProps.className || "";
+  const match = /language-(\w+)/.exec(className);
+  const language = match ? match[1] : "code";
 
-  const handleCopy = () => {
+  const codeString = extractCodeText(children);
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
     if (codeString) {
-      navigator.clipboard.writeText(String(codeString).replace(/\n$/, ""));
+      navigator.clipboard.writeText(codeString.replace(/\n$/, ""));
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000); // Revert back to copy icon after 2s
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   return (
-    <div className="relative group my-2">
-      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+    <div className="relative group my-2.5 rounded-xl overflow-hidden border border-base-300 bg-neutral/90 shadow-md">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-base-300/80 text-[11px] font-mono text-base-content/80 border-b border-base-300">
+        <span className="uppercase tracking-wider font-semibold flex items-center gap-1.5">
+          <Code size={12} className="text-primary" />
+          {language}
+        </span>
         <button
           onClick={handleCopy}
-          className="btn btn-xs btn-ghost btn-square bg-base-300/80 hover:bg-base-200 text-base-content border border-base-100"
+          className="btn btn-ghost btn-xs gap-1 hover:bg-base-200 text-base-content transition-colors px-2 rounded-md"
           title="Copy code"
         >
-          {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+          {copied ? (
+            <>
+              <Check size={12} className="text-success" />
+              <span className="text-success text-[10px]">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy size={12} />
+              <span className="text-[10px]">Copy</span>
+            </>
+          )}
         </button>
       </div>
-      <pre className="bg-black/20 p-4 pt-10 rounded-xl overflow-x-auto text-xs border border-base-300" {...props}>
+      <pre className="p-3.5 overflow-x-auto text-xs font-mono text-neutral-content leading-relaxed" {...props}>
         {children}
       </pre>
     </div>
@@ -191,26 +222,44 @@ const ChatContainer = () => {
                       
                       {message.text && (
                         <ReactMarkdown
-                          className="text-sm flex flex-col gap-2"
+                          className="text-sm flex flex-col gap-2 overflow-hidden break-words"
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
                           components={{
-                            p: ({ node, ...props }) => <p {...props} />,
+                            p: ({ node, ...props }) => <p className="leading-relaxed my-0.5" {...props} />,
                             pre: CustomPre,
                             code: ({ node, inline, className, children, ...props }) => {
-                              // Distinguish between block code (has language class) and inline code
                               const match = /language-(\w+)/.exec(className || "");
                               return !match && inline !== false ? (
-                                <code className="bg-black/20 text-primary px-1.5 py-0.5 rounded-md font-mono text-xs" {...props}>
+                                <code className="bg-black/25 text-primary px-1.5 py-0.5 rounded font-mono text-xs font-semibold" {...props}>
                                   {children}
                                 </code>
                               ) : (
-                                <code className={`${className || ""} block font-mono text-base-content`} {...props}>
+                                <code className={`${className || ""} block font-mono text-xs`} {...props}>
                                   {children}
                                 </code>
                               );
                             },
-                            ul: ({ node, ...props }) => <ul className="list-disc ml-5 space-y-1" {...props} />,
-                            ol: ({ node, ...props }) => <ol className="list-decimal ml-5 space-y-1" {...props} />,
+                            table: ({ node, ...props }) => (
+                              <div className="overflow-x-auto my-2 rounded-lg border border-base-300">
+                                <table className="table table-xs sm:table-sm w-full bg-base-200/60" {...props} />
+                              </div>
+                            ),
+                            thead: ({ node, ...props }) => <thead className="bg-base-300 text-base-content font-bold border-b border-base-300" {...props} />,
+                            tbody: ({ node, ...props }) => <tbody className="divide-y divide-base-300/60" {...props} />,
+                            tr: ({ node, ...props }) => <tr className="hover:bg-base-300/40 transition-colors" {...props} />,
+                            th: ({ node, ...props }) => <th className="px-3 py-2 text-left font-semibold" {...props} />,
+                            td: ({ node, ...props }) => <td className="px-3 py-2" {...props} />,
+                            ul: ({ node, ...props }) => <ul className="list-disc ml-5 space-y-1 my-1" {...props} />,
+                            ol: ({ node, ...props }) => <ol className="list-decimal ml-5 space-y-1 my-1" {...props} />,
+                            li: ({ node, ...props }) => <li className="my-0.5 leading-normal" {...props} />,
+                            blockquote: ({ node, ...props }) => (
+                              <blockquote className="border-l-4 border-primary pl-3 italic opacity-85 my-2 bg-base-300/30 py-1 rounded-r" {...props} />
+                            ),
                             strong: ({ node, ...props }) => <strong className="font-bold text-primary" {...props} />,
+                            a: ({ node, ...props }) => (
+                              <a className="text-primary underline hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer" {...props} />
+                            ),
                           }}
                         >
                           {message.text}
