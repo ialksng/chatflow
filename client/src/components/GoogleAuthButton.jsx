@@ -1,19 +1,30 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "510025990690-37hffq9r60gfpm68bvdmr34dn3bokior.apps.googleusercontent.com";
+
+const GOOGLE_CALLBACK_URL =
+  import.meta.env.VITE_GOOGLE_CALLBACK_URL ||
+  "https://ialksng.me/work/projects/chatflow/app/api/auth/google/callback";
+
 export default function GoogleAuthButton({ label = "Continue with Google" }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleGoogleClick = () => {
     setIsRedirecting(true);
-    const apiBase =
-      import.meta.env.VITE_API_URL ||
-      (import.meta.env.BASE_URL
-        ? `${import.meta.env.BASE_URL.replace(/\/+$/, "")}/api`
-        : "/api");
 
-    const cleanApi = apiBase.replace(/\/+$/, "");
-    window.location.href = `${cleanApi}/auth/google`;
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: GOOGLE_CALLBACK_URL,
+      response_type: "code",
+      scope: "openid email profile",
+      access_type: "offline",
+      prompt: "select_account",
+    });
+
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   };
 
   return (

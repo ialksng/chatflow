@@ -75,16 +75,11 @@ app.use((req, _res, next) => {
 });
 
 // Auto-connect MongoDB on API requests
-let dbPromise = null;
 app.use(async (req, _res, next) => {
   if (req.url.startsWith("/api/")) {
     try {
-      if (!dbPromise) {
-        dbPromise = connectDB();
-      }
-      await dbPromise;
+      await connectDB();
     } catch (err) {
-      dbPromise = null;
       console.error("Auto DB connect error:", err.message);
     }
   }

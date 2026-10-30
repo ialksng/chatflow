@@ -141,7 +141,11 @@ export const googleCallback = async (req, res) => {
     // 1. If error returned by Google
     if (req.query?.error) {
       console.warn("Google OAuth callback returned error:", req.query.error);
-      return res.redirect(`${frontendAppUrl}login?error=${encodeURIComponent(req.query.error)}`);
+      const errUrl = `${frontendAppUrl}login?error=${encodeURIComponent(req.query.error)}`;
+      return res.status(200).send(`
+        <!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${errUrl}" /></head>
+        <body><script>window.location.replace("${errUrl}");</script></body></html>
+      `);
     }
 
     // 2. Check if GIS posted credential in body or query (POST callback mode)
@@ -179,9 +183,11 @@ export const googleCallback = async (req, res) => {
 
       if (tokenData.error) {
         console.error("Error exchanging Google authorization code:", tokenData);
-        return res.redirect(
-          `${frontendAppUrl}login?error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`
-        );
+        const errUrl = `${frontendAppUrl}login?error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`;
+        return res.status(200).send(`
+          <!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${errUrl}" /></head>
+          <body><script>window.location.replace("${errUrl}");</script></body></html>
+        `);
       }
 
       if (tokenData.id_token) {
@@ -207,7 +213,11 @@ export const googleCallback = async (req, res) => {
     }
 
     if (!email) {
-      return res.redirect(`${frontendAppUrl}login?error=email_not_provided`);
+      const errUrl = `${frontendAppUrl}login?error=email_not_provided`;
+      return res.status(200).send(`
+        <!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${errUrl}" /></head>
+        <body><script>window.location.replace("${errUrl}");</script></body></html>
+      `);
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -229,10 +239,30 @@ export const googleCallback = async (req, res) => {
 
     const token = generateToken(user._id, res);
 
-    return res.redirect(`${frontendAppUrl}?token=${encodeURIComponent(token)}`);
+    const redirectUrl = `${frontendAppUrl}?token=${encodeURIComponent(token)}`;
+    return res.status(200).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
+          <title>Redirecting...</title>
+        </head>
+        <body>
+          <p>Signing in, please wait...</p>
+          <script>
+            window.location.replace("${redirectUrl}");
+          </script>
+        </body>
+      </html>
+    `);
   } catch (error) {
     console.error("Error in googleCallback:", error);
-    return res.redirect(`${frontendAppUrl}login?error=${encodeURIComponent(error.message)}`);
+    const errUrl = `${frontendAppUrl}login?error=${encodeURIComponent(error.message)}`;
+    return res.status(200).send(`
+      <!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${errUrl}" /></head>
+      <body><script>window.location.replace("${errUrl}");</script></body></html>
+    `);
   }
 };
 

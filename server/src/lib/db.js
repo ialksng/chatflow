@@ -1,9 +1,7 @@
 import mongoose from "mongoose";
 
-let isConnected = false;
-
 export const connectDB = async () => {
-  if (isConnected || mongoose.connection.readyState >= 1) {
+  if (mongoose.connection.readyState >= 1) {
     return mongoose.connection;
   }
 
@@ -14,13 +12,13 @@ export const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      bufferCommands: false,
+      dbName: "chatflow",
+      serverSelectionTimeoutMS: 5000,
     });
-    isConnected = true;
-    console.log(`MongoDB connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
     return conn;
   } catch (error) {
-    console.error("MongoDB connection error:", error.message);
+    console.error("❌ MongoDB connection error:", error.message);
     throw error;
   }
 };
