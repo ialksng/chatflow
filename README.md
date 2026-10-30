@@ -1,129 +1,225 @@
-# ChatFlow
+# 💬 ChatFlow
 
-A modern, full-stack real-time communication platform featuring 1-on-1 messaging, WebRTC audio/video calls, collaborative whiteboard, AI assistant, and full authentication (Email/Password, Google OAuth, and Forgot/Reset Password).
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![React Version](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+[![Socket.IO](https://img.shields.io/badge/Socket.IO-v4-black.svg)](https://socket.io/)
+[![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-v4-38bdf8.svg)](https://tailwindcss.com/)
+
+A modern, full-stack, real-time communication platform featuring 1-on-1 instant messaging, high-performance Groq AI conversational assistant with KaTeX math rendering, WebRTC audio/video calls with Twilio STUN/TURN traversal, interactive whiteboard drawing, and multi-device presence.
 
 ---
 
 ## 🌐 Live Deployments
 
-- **Production App**: [https://ialksng.me/work/projects/chatflow/app](https://ialksng.me/work/projects/chatflow/app)
-- **Vercel Direct Deployment**: [https://chatflow-ten-rho.vercel.app/work/projects/chatflow/app/signup](https://chatflow-ten-rho.vercel.app/work/projects/chatflow/app/signup)
+- **Live Application**: [https://ialksng.me/work/projects/chatflow/app](https://ialksng.me/work/projects/chatflow/app)
+- **Vercel Production Mirror**: [https://chatflow-ten-rho.vercel.app](https://chatflow-ten-rho.vercel.app)
+- **Real-Time Socket Server (Render)**: [https://chatflow-p0iz.onrender.com](https://chatflow-p0iz.onrender.com)
+- **Developer Website**: [https://ialksng.me](https://ialksng.me)
 
 ---
 
 ## ✨ Features
 
-- **Robust Authentication**:
-  - Email & Password sign-up and sign-in with bcrypt encryption.
-  - **Google OAuth Login**: One-click Google sign-in.
-  - **Password Recovery**: Secure Forgot Password and Reset Password workflow via timed crypto tokens.
-  - Protected routing: visiting the root route (`/work/projects/chatflow/app`) directly opens login/signup for unauthenticated users, and enters the chat interface once authenticated.
-- **Pure MongoDB Architecture**: Fully decoupled from Supabase — uses MongoDB and Mongoose for all user profiles, messages, and reaction models.
-- **Real-Time Messaging**: Built on Socket.IO for instant message delivery, online indicators, and typing states.
-- **WebRTC Calling**: Peer-to-peer audio and video calls with screen-sharing capabilities.
-- **Collaborative Whiteboard**: Real-time collaborative canvas drawing during calls.
-- **AI Assistant Integration**: Integrated Indra AI conversational assistant.
-- **Media Uploads**: Image sharing backed by Cloudinary.
-- **Subpath Hosting Ready**: Configured out-of-the-box to run seamlessly under subpaths (such as `/work/projects/chatflow/app`).
+### 💬 Real-Time Messaging & Chat
+- **Instant Messaging**: Powered by Socket.IO with optimistic UI updates.
+- **Message Actions**:
+  - **Inline Message Editing**: Edit sent messages with live sync across participants.
+  - **Emoji Reactions**: React with multiple emojis (`👍`, `❤️`, `😂`, `😮`, `😢`) with instant counts.
+  - **Message Deletion**: Soft deletion of messages.
+  - **Thread Replies**: Contextual quote-reply to specific messages.
+- **Media Attachments**: Image uploads powered by Cloudinary with automatic MongoDB base64 fallback.
+
+### 🤖 AI Assistant (Groq Cloud)
+- **Conversational Intelligence**: Integrated ultra-fast Groq LLM inference with an automated model fallback cascade (`openai/gpt-oss-120b` $\rightarrow$ `llama-3.3-70b-versatile` $\rightarrow$ `llama-3.1-8b-instant`).
+- **LaTeX Math Rendering**: Math formatting for formulas using `KaTeX`, `remark-math`, and `rehype-katex` ($inline$ and $$display$$).
+- **GFM Tables**: Responsive GitHub Flavored Markdown table styling.
+- **Code Blocks**: Formatted syntax blocks with language badge and one-click **Copy Code** button.
+- **Streamlined Controls**: Call, video, and draw action buttons are cleanly hidden when chatting with the AI Assistant.
+
+### 📞 WebRTC Audio & Video Calls
+- **Cross-Network Connectivity**: Powered by Twilio Network Traversal (STUN/TURN) for seamless peer-to-peer connection across restrictive NATs and firewalls.
+- **Multi-Device Signaling**: Socket-based offer/answer and ICE candidate exchange that broadcasts across all open devices of a user.
+- **Screen Sharing**: One-click screen broadcasting during video sessions.
+- **Resilient Media Streams**: Audio and dummy track fallbacks to prevent crashes when devices lack camera or microphone access.
+
+### 🎨 Collaborative Whiteboard
+- **Real-Time Drawing**: Synchronized multi-user canvas drawing during calls.
+- **Canvas Tools**: Multi-color palette (White, Blue, Green, Yellow, Red), adjustable brush widths, eraser, and synchronized board clearing.
+- **Cross-Device Coordinate Normalization**: Normalized 1000×1000 coordinate map providing pixel-accurate drawing between mobile touchscreens and desktop mice.
+- **Standalone Mode**: Dedicated whiteboard sessions without requiring camera/microphone access.
+
+### 🛡️ Authentication & User Presence
+- **Multi-Mode Authentication**:
+  - Email & Password with secure `bcryptjs` hashing.
+  - **Google OAuth 2.0**: One-click sign-in via Google Identity Services.
+  - **Password Recovery**: Secure forgot password and reset password workflow via timed crypto tokens.
+- **Hybrid Real-Time Presence**:
+  - Real-time Socket.IO connection status.
+  - MongoDB database-backed `lastSeen` tracking ensuring active users stay displayed as "Online" across serverless and server environments.
+  - Silent background contact refresh without UI flickering.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Architecture
 
-- **Frontend**: React 19, Vite, Tailwind CSS v4, DaisyUI, Zustand, Lucide Icons, React Router v7
-- **Backend**: Node.js, Express, Socket.IO, Mongoose (MongoDB), Cloudinary, JWT, bcryptjs
+### Frontend
+- **Framework**: React 19, Vite
+- **Styling**: Tailwind CSS v4, DaisyUI 5
+- **State Management**: Zustand
+- **Real-time Client**: Socket.IO Client
+- **Routing**: React Router v7 (configured for subpath hosting at `/work/projects/chatflow/app`)
+- **Markdown & Math**: `react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `KaTeX`
+- **Icons**: Lucide React
+- **Notifications**: React Hot Toast
+
+### Backend
+- **Runtime**: Node.js (>= 18.0.0, ES Modules)
+- **Web Framework**: Express 5
+- **Database & ODM**: MongoDB Atlas, Mongoose
+- **Real-time Engine**: Socket.IO with multi-socket Map architecture
+- **Security**: JSON Web Tokens (`jsonwebtoken`), `bcryptjs`, `cookie-parser`, `cors`
+
+---
+
+## 🔌 Third-Party APIs & Services Used
+
+| Service | Purpose | Configuration |
+| :--- | :--- | :--- |
+| **Groq Cloud API** | Ultra-low latency LLM inference for AI Assistant | `GROQ_API_KEY`, `GROQ_MODEL` |
+| **Twilio Network Traversal** | Dynamic STUN/TURN ICE servers for cross-network WebRTC | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` |
+| **Google OAuth 2.0** | Single Sign-On (SSO) authentication | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| **Cloudinary** | Cloud image storage and asset optimization | `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_SECRET` |
+| **MongoDB Atlas** | Cloud database for user profiles, messages, and state | `MONGODB_URI` |
+| **Render** | Persistent WebSocket & Socket.IO signaling server | Hosted at `chatflow-p0iz.onrender.com` |
+| **Vercel** | Edge hosting, client bundle distribution, and serverless API | Hosted at `chatflow-ten-rho.vercel.app` |
 
 ---
 
 ## 🔑 Environment Variables
 
-Copy the provided example files to create your local `.env` configuration:
+### Root / Server Environment (`server/.env` or root `.env`)
 
-```bash
-# In project root
-cp .env.example .env
+```env
+# Server Configuration
+PORT=5002
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173,https://ialksng.me,https://chatflow-ten-rho.vercel.app
 
-# Or separately for client & server:
-cp client/.env.example client/.env
-cp server/.env.example server/.env
+# Database & Authentication
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/chatflow?retryWrites=true&w=majority
+JWT_SECRET=your_super_secret_jwt_key_here
+
+# Groq AI Assistant
+GROQ_API_KEY=gsk_your_groq_api_key
+GROQ_MODEL=openai/gpt-oss-120b
+
+# Twilio (WebRTC TURN Traversal)
+TWILIO_ACCOUNT_SID=ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+
+# Google OAuth (Optional)
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:5002/api/auth/google/callback
+
+# Cloudinary Media (Optional - has automatic MongoDB base64 fallback)
+CLOUDINARY_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_SECRET=your_cloudinary_api_secret
 ```
 
-### 1. Client (Frontend - Vite)
+### Client Environment (`client/.env`)
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `VITE_BASE_PATH` | No | `/work/projects/chatflow/app/` | Base URL path where the frontend app is hosted. |
-| `VITE_API_URL` | No | `/chatflow-api` | Base URL for REST API calls (proxied to backend in production via `vercel.json`). |
-| `VITE_SOCKET_URL` | No | `https://chatflow.ialksng.me` | WebSocket / Socket.IO server endpoint for real-time chat and signaling. |
-| `VITE_GOOGLE_CLIENT_ID` | Optional | `""` | Google OAuth Web Client ID for enabling Google Sign-In button. |
+```env
+# Application Base Routing
+VITE_BASE_PATH=/
+VITE_API_URL=http://localhost:5002/api
 
-### 2. Server (Backend - Node.js)
+# Real-time WebSocket Server
+VITE_SOCKET_URL=http://localhost:5002
 
-| Variable | Required | Example | Description |
-|---|---|---|---|
-| `PORT` | No | `5002` | Port on which the unified backend server listens. |
-| `NODE_ENV` | No | `production` / `development` | Node environment mode. |
-| `CLIENT_URL` | Yes | `https://ialksng.me` | Allowed CORS origin for the frontend application. |
-| `MONGODB_URI` | Yes | `mongodb+srv://...` | Connection URI for the MongoDB database cluster. |
-| `JWT_SECRET` | Yes | `your_jwt_secret` | Secret key used for signing session auth tokens and cookies. |
-| `GOOGLE_CLIENT_ID` | Optional | `your-google-client-id...` | Google OAuth Client ID for backend token validation. |
-| `CLOUDINARY_NAME` | Yes | `your_cloud_name` | Cloudinary account cloud name. |
-| `CLOUDINARY_API_KEY` | Yes | `your_api_key` | Cloudinary API key for uploading media. |
-| `CLOUDINARY_API_SECRET` | Yes | `your_api_secret` | Cloudinary API secret for signing uploads. |
+# Google Sign-In Client ID (Optional)
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+VITE_GOOGLE_CALLBACK_URL=http://localhost:5002/api/auth/google/callback
+```
 
 ---
 
-## 🚀 Local Development
+## 🚀 How to Run Locally
 
 ### Prerequisites
+- [Node.js](https://nodejs.org/) (version 18.0.0 or higher)
+- [npm](https://www.npmjs.com/)
+- A [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster or local MongoDB instance
 
-- Node.js (>= 18.0.0)
-- MongoDB instance (Atlas or local)
-
-### 1. Clone & Install Dependencies
-
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/ialksng/chatflow.git
 cd chatflow
-
-# Install client dependencies
-npm --prefix client install
-
-# Install server dependencies
-npm --prefix server install
 ```
 
-### 2. Run the Development Servers
+### 2. Install Dependencies
+This project uses npm workspaces to manage both client and server packages from the root:
 
 ```bash
-# Terminal 1 - Backend Server (Port 5002)
+# Install all root, client, and server dependencies
+npm install
+```
+
+### 3. Setup Environment Variables
+Create your configuration files:
+```bash
+# In client/
+cp client/.env.example client/.env
+
+# In server/
+cp server/.env.example server/.env
+```
+*(Fill in your `MONGODB_URI`, `JWT_SECRET`, and optional API keys in `server/.env`).*
+
+### 4. Run the Development Servers
+
+You can run both client and server in separate terminal windows:
+
+#### Terminal 1 — Backend Server
+```bash
 cd server
 npm run dev
+```
+*The unified Express & Socket.IO server will start on `http://localhost:5002`.*
 
-# Terminal 2 - Frontend Client (Port 5173)
+#### Terminal 2 — Frontend Client
+```bash
 cd client
 npm run dev
 ```
+*The Vite frontend will spin up on `http://localhost:5173`.*
 
 ---
 
-## ☁️ Deployment
+## 📦 Production Deployment
 
-### Frontend (Vercel)
+### 1. Frontend & Serverless Deployment (Vercel)
+The repository contains a [`vercel.json`](./vercel.json) pre-configured with rewrites for subpath hosting (`/work/projects/chatflow/app`):
+1. Connect the GitHub repository to **Vercel**.
+2. Configure your Environment Variables (`MONGODB_URI`, `JWT_SECRET`, `GROQ_API_KEY`, `VITE_SOCKET_URL`).
+3. Deploy. Vercel automatically runs `npm run build` and distributes the optimized client bundle.
 
-This repository includes a [`vercel.json`](./vercel.json) configuration that allows you to import and host the frontend on Vercel:
-
-1. Import the repository in [Vercel](https://vercel.com).
-2. Keep the **Root Directory** as `./`.
-3. Vercel automatically runs `cd client && npm install && npm run build` and serves static files from `client/dist`.
-4. The router serves from `/work/projects/chatflow/app` with client-side SPA routing and API reverse-proxying.
-
-### Backend Server
-
-Because WebSockets and persistent Socket.IO connections require a long-running Node.js process, host the `server/` directory on a platform that supports persistent servers (VPS, Railway, Render, Fly.io, or DigitalOcean) and point `VITE_SOCKET_URL` to it.
+### 2. Real-Time Socket Server (Render / Railway / VPS)
+Because WebSocket signaling and WebRTC coordination require a persistent Node.js event loop:
+1. Create a new **Web Service** on [Render](https://render.com).
+2. Set:
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+3. Add your environment variables (`MONGODB_URI`, `JWT_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `CLIENT_URL`).
+4. Once deployed, copy your Render service URL (e.g. `https://chatflow-p0iz.onrender.com`) and set it as `VITE_SOCKET_URL` in your frontend environment.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the ISC License. See the [LICENSE](./LICENSE) file for details.
+This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for details.
+
+Copyright (c) 2026 **Alok Singh**
