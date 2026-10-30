@@ -2,7 +2,6 @@
   "name": "chatflow",
   "version": "1.0.0",
   "description": "",
-  "main": "server/src/server.js",
   "scripts": {
     "build": "npm --prefix client install && npm --prefix client run build",
     "build:all": "npm install --prefix server && npm install --include=dev --prefix client && npm run build --prefix client",
