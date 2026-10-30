@@ -171,4 +171,4 @@ io.on("connection", (socket) => {
   });
 });
 
-export { io, app, server, AI_ASSISTANT_ID, INDRA_AI_ID };
+export { io, server, AI_ASSISTANT_ID, INDRA_AI_ID };
