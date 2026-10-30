@@ -420,10 +420,27 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: "Profile picture is required" });
     }
 
-    const uploadResponse = await cloudinary.uploader.upload(profilePic);
+    let finalProfilePic = profilePic;
+    const hasCloudinary = Boolean(
+      (process.env.CLOUDINARY_NAME || process.env.CLOUDINARY_CLOUD_NAME) &&
+      process.env.CLOUDINARY_API_KEY &&
+      (process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET)
+    );
+
+    if (hasCloudinary) {
+      try {
+        const uploadResponse = await cloudinary.uploader.upload(profilePic);
+        if (uploadResponse?.secure_url) {
+          finalProfilePic = uploadResponse.secure_url;
+        }
+      } catch (cloudErr) {
+        console.warn("Cloudinary upload failed, falling back to direct storage:", cloudErr.message);
+      }
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { profilePic: uploadResponse.secure_url },
+      { profilePic: finalProfilePic, lastSeen: new Date() },
       { new: true }
     ).select("-password");
 
@@ -464,6 +481,9 @@ export const checkAuth = async (req, res) => {
     if (!user) {
       return res.status(200).json(null);
     }
+
+    // Refresh lastSeen
+    User.findByIdAndUpdate(user._id, { lastSeen: new Date() }).exec().catch(() => {});
 
     const userData = user.toObject ? user.toObject() : user;
     res.status(200).json({ ...userData, token });

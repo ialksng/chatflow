@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 
 const getSocketUrl = () => {
   const url = import.meta.env.VITE_SOCKET_URL;
-  if (!url || url === "disabled" || url === "false" || url.includes("chatflow.ialksng.me")) return null;
+  if (!url || url === "disabled" || url === "false") return null;
   return url.trim();
 };
 

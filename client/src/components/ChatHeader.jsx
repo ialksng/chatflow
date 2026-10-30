@@ -17,7 +17,7 @@ const ChatHeader = () => {
     selectedUser.email === "ai@chatflow.app" ||
     selectedUser.fullName?.toLowerCase().includes("ai assistant")
   );
-  const isOnline = isAi || onlineUsers.includes(uId);
+  const isOnline = isAi || onlineUsers.includes(uId) || Boolean(selectedUser.isOnline);
 
   return (
     <div className="p-2.5 border-b border-base-300">

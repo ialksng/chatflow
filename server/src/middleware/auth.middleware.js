@@ -29,6 +29,7 @@ export const protectRoute = async (req, res, next) => {
     }
 
     req.user = user;
+    User.findByIdAndUpdate(user._id, { lastSeen: new Date() }).exec().catch(() => {});
     next();
   } catch (error) {
     console.error("Error in protectRoute middleware: ", error.message);

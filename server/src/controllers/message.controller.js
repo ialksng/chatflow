@@ -10,14 +10,20 @@ export const getUsersForSidebar = async (req, res) => {
     const loggedInUserId = req.user._id;
     const users = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
 
-    const formattedUsers = users.map((u) => ({
-      _id: u._id.toString(),
-      id: u._id.toString(),
-      email: u.email,
-      fullName: u.fullName,
-      profilePic: u.profilePic || "",
-      isAI: false,
-    }));
+    const activeThreshold = Date.now() - 5 * 60 * 1000; // active in last 5 minutes
+    const formattedUsers = users.map((u) => {
+      const isOnline = Boolean(u.lastSeen && new Date(u.lastSeen).getTime() > activeThreshold);
+      return {
+        _id: u._id.toString(),
+        id: u._id.toString(),
+        email: u.email,
+        fullName: u.fullName,
+        profilePic: u.profilePic || "",
+        lastSeen: u.lastSeen,
+        isOnline,
+        isAI: false,
+      };
+    });
 
     // Add AI assistant at the top
     formattedUsers.unshift({
@@ -26,6 +32,7 @@ export const getUsersForSidebar = async (req, res) => {
       email: "ai@chatflow.app",
       fullName: "AI Assistant",
       profilePic: `${process.env.CLIENT_URL || "https://ialksng.me"}/work/projects/chatflow/app/avatar.png`,
+      isOnline: true,
       isAI: true,
     });
 
@@ -85,8 +92,23 @@ export const sendMessage = async (req, res) => {
 
     let imageUrl = null;
     if (image) {
-      const uploadResponse = await cloudinary.uploader.upload(image);
-      imageUrl = uploadResponse.secure_url;
+      imageUrl = image; // fallback to raw base64 data url directly
+      const hasCloudinary = Boolean(
+        (process.env.CLOUDINARY_NAME || process.env.CLOUDINARY_CLOUD_NAME) &&
+        process.env.CLOUDINARY_API_KEY &&
+        (process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET)
+      );
+
+      if (hasCloudinary) {
+        try {
+          const uploadResponse = await cloudinary.uploader.upload(image);
+          if (uploadResponse?.secure_url) {
+            imageUrl = uploadResponse.secure_url;
+          }
+        } catch (cloudErr) {
+          console.warn("Cloudinary upload failed, storing image directly:", cloudErr.message);
+        }
+      }
     }
 
     const newMessage = new Message({

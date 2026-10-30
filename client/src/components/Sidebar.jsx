@@ -11,6 +11,10 @@ const Sidebar = () => {
 
   useEffect(() => {
     getUsers();
+    const interval = setInterval(() => {
+      getUsers();
+    }, 20000);
+    return () => clearInterval(interval);
   }, [getUsers]);
 
   const isUserAi = (user) => {
@@ -29,7 +33,7 @@ const Sidebar = () => {
   const filteredUsers = showOnlineOnly
     ? (users || []).filter((user) => {
         const uId = user.id || user._id;
-        return onlineUsers.includes(uId) || isUserAi(user);
+        return isUserAi(user) || onlineUsers.includes(uId) || Boolean(user.isOnline);
       })
     : (users || []);
 
@@ -69,7 +73,7 @@ const Sidebar = () => {
           const uId = user.id || user._id;
           const isSelected = (selectedUser?.id || selectedUser?._id) === uId;
           const isAi = isUserAi(user);
-          const isOnline = onlineUsers.includes(uId);
+          const isOnline = isAi || onlineUsers.includes(uId) || Boolean(user.isOnline);
           const displayName = isAi ? "AI Assistant" : user.fullName;
 
           return (
